@@ -39,26 +39,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         translator = Translation.getClient(
-            TranslatorOptions.Builder()
-                .setSourceLanguage("es")
-                .setTargetLanguage("zh")
-                .build()
+            TranslatorOptions.Builder().setSourceLanguage("es").setTargetLanguage("zh").build()
         )
         translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
-
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) tts?.language = Locale.SIMPLIFIED_CHINESE
         }
-
         setContent {
-            ConversaFacilApp(
-                spokenText = speechResult.value,
-                chineseText = translationResult.value,
-                startListening = ::startListening,
-                speakChinese = ::speakChinese
-            )
+            ConversaFacilApp(speechResult.value, translationResult.value, ::startListening, ::speakChinese)
         }
     }
 
@@ -73,7 +62,7 @@ class MainActivity : ComponentActivity() {
     private fun translateToChinese(text: String) {
         if (text.isBlank()) return
         translator.translate(text)
-            .addOnSuccessListener { translated -> translationResult.value = translated }
+            .addOnSuccessListener { translationResult.value = it }
             .addOnFailureListener { translationResult.value = "No se pudo traducir. Intenta de nuevo." }
     }
 
@@ -98,12 +87,8 @@ private fun ConversaFacilApp(
     var spanishText by remember { mutableStateOf("") }
     var chineseTranslation by remember { mutableStateOf("") }
 
-    LaunchedEffect(spokenText) {
-        if (spokenText.isNotBlank()) spanishText = spokenText
-    }
-    LaunchedEffect(chineseText) {
-        if (chineseText.isNotBlank()) chineseTranslation = chineseText
-    }
+    LaunchedEffect(spokenText) { if (spokenText.isNotBlank()) spanishText = spokenText }
+    LaunchedEffect(chineseText) { if (chineseText.isNotBlank()) chineseTranslation = chineseText }
 
     val phrases = listOf(
         "Hola" to "你好", "¿Cómo está?" to "你好吗？", "¿Cuánto cuesta?" to "多少钱？",
@@ -118,7 +103,6 @@ private fun ConversaFacilApp(
                 Text("Conversa Fácil", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("Habla sin fronteras", style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("🇸🇻 Español  ↔  🇨🇳 中文", style = MaterialTheme.typography.titleLarge, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Text("ESPAÑOL", style = MaterialTheme.typography.labelLarge)
@@ -134,7 +118,6 @@ private fun ConversaFacilApp(
                         }
                     }
                 }
-
                 Text("⚡ Frases rápidas", style = MaterialTheme.typography.titleLarge)
                 phrases.forEach { (es, zh) ->
                     Button(
@@ -143,7 +126,6 @@ private fun ConversaFacilApp(
                         shape = RoundedCornerShape(14.dp)
                     ) { Text("$es  •  $zh") }
                 }
-
                 OutlinedButton(onClick = { spanishText = ""; chineseTranslation = "" }, modifier = Modifier.fillMaxWidth()) {
                     Text("Limpiar")
                 }
