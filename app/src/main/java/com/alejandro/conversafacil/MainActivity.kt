@@ -12,7 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.VolumeUp
@@ -67,13 +66,13 @@ class MainActivity : ComponentActivity() {
     private fun translateSpanishToChinese(text: String) {
         if (text.isBlank()) return
         esToZh.translate(text).addOnSuccessListener { translationResult.value = it }
-            .addOnFailureListener { translationResult.value = "No se pudo traducir. Comprueba tu conexión e inténtalo de nuevo." }
+            .addOnFailureListener { translationResult.value = "No se pudo traducir. Inténtalo de nuevo." }
     }
 
     private fun translateChineseToSpanish(text: String) {
         if (text.isBlank()) return
         zhToEs.translate(text).addOnSuccessListener { translationResult.value = it }
-            .addOnFailureListener { translationResult.value = "No se pudo traducir. Comprueba tu conexión e inténtalo de nuevo." }
+            .addOnFailureListener { translationResult.value = "No se pudo traducir. Inténtalo de nuevo." }
     }
 
     private fun speak(text: String, chinese: Boolean) {
@@ -83,10 +82,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        esToZh.close()
-        zhToEs.close()
-        tts?.shutdown()
-        super.onDestroy()
+        esToZh.close(); zhToEs.close(); tts?.shutdown(); super.onDestroy()
     }
 }
 
@@ -100,92 +96,52 @@ private fun ConversaFacilApp(
     var spanishText by remember { mutableStateOf("") }
     var chineseText by remember { mutableStateOf("") }
     var spanishToChinese by remember { mutableStateOf(true) }
-    var lastSpeaker by remember { mutableStateOf("Tú") }
 
-    LaunchedEffect(spokenText) {
-        if (spokenText.isNotBlank()) {
-            if (spanishToChinese) spanishText = spokenText else chineseText = spokenText
-        }
-    }
-    LaunchedEffect(translatedText) {
-        if (translatedText.isNotBlank()) {
-            if (spanishToChinese) chineseText = translatedText else spanishText = translatedText
-        }
-    }
+    LaunchedEffect(spokenText) { if (spokenText.isNotBlank()) { if (spanishToChinese) spanishText = spokenText else chineseText = spokenText } }
+    LaunchedEffect(translatedText) { if (translatedText.isNotBlank()) { if (spanishToChinese) chineseText = translatedText else spanishText = translatedText } }
 
-    val phrases = listOf(
-        "Hola" to "你好", "¿Cómo está?" to "你好吗？", "¿Cuánto cuesta?" to "多少钱？",
-        "Quiero comprar" to "我想买", "¿Cuántos necesita?" to "您需要多少？",
-        "¿Tiene este producto?" to "你有这个产品吗？", "Gracias" to "谢谢", "Espere un momento" to "请等一下"
-    )
+    val phrases = listOf("Hola" to "你好", "¿Cómo está?" to "你好吗？", "¿Cuánto cuesta?" to "多少钱？", "Quiero comprar" to "我想买", "¿Cuántos necesita?" to "您需要多少？", "¿Tiene este producto?" to "你有这个产品吗？", "Gracias" to "谢谢", "Espere un momento" to "请等一下")
 
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
-            Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("💬", style = MaterialTheme.typography.displaySmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("Conversa Fácil", style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("Habla • traduce • escucha", style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
 
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
                     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                        Text(if (spanishToChinese) "🇸🇻 ESPAÑOL" else "🇨🇳 中文", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        IconButton(onClick = { spanishToChinese = !spanishToChinese }) { Icon(Icons.Default.SwapHoriz, contentDescription = "Cambiar dirección") }
-                        Text(if (spanishToChinese) "🇨🇳 中文" else "🇸🇻 ESPAÑOL", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text(if (spanishToChinese) "🇸🇻 ESPAÑOL" else "🇨🇳 中文", fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { spanishToChinese = !spanishToChinese }) { Icon(Icons.Default.SwapHoriz, "Cambiar dirección") }
+                        Text(if (spanishToChinese) "🇨🇳 中文" else "🇸🇻 ESPAÑOL", fontWeight = FontWeight.Bold)
                     }
                 }
 
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(if (spanishToChinese) "🇸🇻 TÚ HABLAS" else "🇨🇳 LA OTRA PERSONA HABLA", style = MaterialTheme.typography.labelLarge)
-                        Text(
-                            if (spanishToChinese) spanishText.ifEmpty { "Pulsa el botón y habla" } else chineseText.ifEmpty { "按按钮说中文" },
-                            style = MaterialTheme.typography.headlineSmall
-                        )
-                        Button(
-                            onClick = { lastSpeaker = if (spanishToChinese) "Tú" else "La otra persona"; startListening(!spanishToChinese) },
-                            modifier = Modifier.fillMaxWidth().height(58.dp),
-                            shape = RoundedCornerShape(18.dp)
-                        ) {
-                            Icon(Icons.Default.Mic, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (spanishToChinese) "🎤 HABLAR EN ESPAÑOL" else "🎤 HABLAR EN CHINO")
+                        Text(if (spanishToChinese) "🇸🇻 TÚ HABLAS" else "🇨🇳 LA OTRA PERSONA HABLA", fontWeight = FontWeight.Bold)
+                        Text(if (spanishToChinese) spanishText.ifEmpty { "Pulsa el botón y habla" } else chineseText.ifEmpty { "按按钮说中文" }, style = MaterialTheme.typography.headlineSmall)
+                        Button(onClick = { startListening(!spanishToChinese) }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(18.dp)) {
+                            Icon(Icons.Default.Mic, null); Spacer(Modifier.width(8.dp)); Text(if (spanishToChinese) "🎤 HABLAR EN ESPAÑOL" else "🎤 HABLAR EN CHINO")
                         }
                     }
                 }
 
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(if (spanishToChinese) "🇨🇳 TRADUCCIÓN" else "🇸🇻 TRADUCCIÓN", style = MaterialTheme.typography.labelLarge)
-                        Text(
-                            if (spanishToChinese) chineseText.ifEmpty { "Aquí aparecerá el chino" } else spanishText.ifEmpty { "Aquí aparecerá el español" },
-                            style = MaterialTheme.typography.headlineSmall
-                        )
-                        Button(
-                            onClick = { if (spanishToChinese) speak(chineseText, true) else speak(spanishText, false) },
-                            modifier = Modifier.fillMaxWidth().height(54.dp),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Icon(Icons.Default.VolumeUp, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("🔊 ESCUCHAR TRADUCCIÓN")
+                        Text(if (spanishToChinese) "🇨🇳 TRADUCCIÓN" else "🇸🇻 TRADUCCIÓN", fontWeight = FontWeight.Bold)
+                        Text(if (spanishToChinese) chineseText.ifEmpty { "Aquí aparecerá el chino" } else spanishText.ifEmpty { "Aquí aparecerá el español" }, style = MaterialTheme.typography.headlineSmall)
+                        Button(onClick = { if (spanishToChinese) speak(chineseText, true) else speak(spanishText, false) }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp)) {
+                            Icon(Icons.Default.VolumeUp, null); Spacer(Modifier.width(8.dp)); Text("🔊 ESCUCHAR TRADUCCIÓN")
                         }
                     }
                 }
 
                 Text("⚡ Frases rápidas", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
                 phrases.forEach { (es, zh) ->
-                    Button(
-                        onClick = { spanishText = es; chineseText = zh; lastSpeaker = "Frase rápida" },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    ) { Text("$es  •  $zh") }
+                    Button(onClick = { spanishText = es; chineseText = zh }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("$es  •  $zh") }
                 }
-
-                Text("Último hablante: $lastSpeaker", style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-                OutlinedButton(onClick = { spanishText = ""; chineseText = ""; translationResult.value = "" }, modifier = Modifier.fillMaxWidth()) { Text("🧹 Limpiar conversación") }
+                OutlinedButton(onClick = { spanishText = ""; chineseText = "" }, modifier = Modifier.fillMaxWidth()) { Text("🧹 Limpiar conversación") }
             }
         }
     }
