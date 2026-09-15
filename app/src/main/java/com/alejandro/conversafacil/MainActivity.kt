@@ -38,7 +38,7 @@ private fun ConversaFacilApp() {
         Surface(Modifier.fillMaxSize()) {
             Column(
                 Modifier.fillMaxSize().padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text("💬", style = MaterialTheme.typography.displaySmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("Conversa Fácil", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
@@ -46,7 +46,7 @@ private fun ConversaFacilApp() {
                 Text("🇸🇻 Español  ↔  🇨🇳 中文", style = MaterialTheme.typography.titleLarge, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
 
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Text("ESPAÑOL", style = MaterialTheme.typography.labelLarge)
                         Text(spanishText.ifEmpty { "Elige una frase" }, style = MaterialTheme.typography.headlineSmall)
                         HorizontalDivider()
@@ -64,7 +64,9 @@ private fun ConversaFacilApp() {
                     ) { Text("$es    •    $zh") }
                 }
 
-                OutlinedButton(onClick = { spanishText = ""; chineseText = "" }, modifier = Modifier.fillMaxWidth()) { Text("Limpiar") }
+                OutlinedButton(onClick = { spanishText = ""; chineseText = "" }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Limpiar")
+                }
             }
         }
     }
