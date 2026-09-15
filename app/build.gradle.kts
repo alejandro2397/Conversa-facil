@@ -7,7 +7,6 @@ plugins {
 android {
     namespace = "com.alejandro.conversafacil"
     compileSdk = 35
-
     defaultConfig {
         applicationId = "com.alejandro.conversafacil"
         minSdk = 24
@@ -15,15 +14,11 @@ android {
         versionCode = 1
         versionName = "1.0"
     }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+    kotlinOptions { jvmTarget = "17" }
 }
 
 dependencies {
