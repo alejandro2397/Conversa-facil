@@ -29,5 +29,6 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("com.google.mlkit:translate:17.0.3")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
