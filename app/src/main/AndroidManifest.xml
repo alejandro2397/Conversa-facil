@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application android:theme="@style/Theme.ConversaFacil" android:label="Conversa Fácil" android:icon="@drawable/ic_launcher_foreground" android:roundIcon="@drawable/ic_launcher_foreground" android:allowBackup="true">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
