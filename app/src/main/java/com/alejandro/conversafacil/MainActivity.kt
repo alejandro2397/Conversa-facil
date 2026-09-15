@@ -5,8 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -36,10 +40,7 @@ private fun ConversaFacilApp() {
 
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
-            Column(
-                Modifier.fillMaxSize().padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("💬", style = MaterialTheme.typography.displaySmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("Conversa Fácil", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("Habla sin fronteras", style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
@@ -48,25 +49,26 @@ private fun ConversaFacilApp() {
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Text("ESPAÑOL", style = MaterialTheme.typography.labelLarge)
-                        Text(spanishText.ifEmpty { "Elige una frase" }, style = MaterialTheme.typography.headlineSmall)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(spanishText.ifEmpty { "Elige una frase" }, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { }) { Icon(Icons.Default.Mic, contentDescription = "Hablar español") }
+                        }
                         HorizontalDivider()
                         Text("中文", style = MaterialTheme.typography.labelLarge)
-                        Text(chineseText.ifEmpty { "选择一句话" }, style = MaterialTheme.typography.headlineSmall)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(chineseText.ifEmpty { "选择一句话" }, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { }) { Icon(Icons.Default.VolumeUp, contentDescription = "Escuchar chino") }
+                        }
                     }
                 }
 
                 Text("Toca lo que quieres decir", style = MaterialTheme.typography.titleLarge)
                 phrases.forEach { (es, zh) ->
-                    Button(
-                        onClick = { spanishText = es; chineseText = zh },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    ) { Text("$es    •    $zh") }
+                    Button(onClick = { spanishText = es; chineseText = zh }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                        Text("$es    •    $zh")
+                    }
                 }
-
-                OutlinedButton(onClick = { spanishText = ""; chineseText = "" }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Limpiar")
-                }
+                OutlinedButton(onClick = { spanishText = ""; chineseText = "" }, modifier = Modifier.fillMaxWidth()) { Text("Limpiar") }
             }
         }
     }
