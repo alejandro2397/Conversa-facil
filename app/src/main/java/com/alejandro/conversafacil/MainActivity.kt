@@ -39,16 +39,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        translator = Translation.getClient(
-            TranslatorOptions.Builder().setSourceLanguage("es").setTargetLanguage("zh").build()
-        )
+        translator = Translation.getClient(TranslatorOptions.Builder().setSourceLanguage("es").setTargetLanguage("zh").build())
         translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) tts?.language = Locale.SIMPLIFIED_CHINESE
         }
-        setContent {
-            ConversaFacilApp(speechResult.value, translationResult.value, ::startListening, ::speakChinese)
-        }
+        setContent { ConversaFacilApp(speechResult.value, translationResult.value, ::startListening, ::speakChinese) }
     }
 
     private fun startListening() {
@@ -78,12 +74,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun ConversaFacilApp(
-    spokenText: String,
-    chineseText: String,
-    startListening: () -> Unit,
-    speakChinese: (String) -> Unit
-) {
+private fun ConversaFacilApp(spokenText: String, chineseText: String, startListening: () -> Unit, speakChinese: (String) -> Unit) {
     var spanishText by remember { mutableStateOf("") }
     var chineseTranslation by remember { mutableStateOf("") }
 
@@ -120,15 +111,11 @@ private fun ConversaFacilApp(
                 }
                 Text("⚡ Frases rápidas", style = MaterialTheme.typography.titleLarge)
                 phrases.forEach { (es, zh) ->
-                    Button(
-                        onClick = { spanishText = es; chineseTranslation = zh },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    ) { Text("$es  •  $zh") }
+                    Button(onClick = { spanishText = es; chineseTranslation = zh }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                        Text("$es  •  $zh")
+                    }
                 }
-                OutlinedButton(onClick = { spanishText = ""; chineseTranslation = "" }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Limpiar")
-                }
+                OutlinedButton(onClick = { spanishText = ""; chineseTranslation = "" }, modifier = Modifier.fillMaxWidth()) { Text("Limpiar") }
             }
         }
     }
