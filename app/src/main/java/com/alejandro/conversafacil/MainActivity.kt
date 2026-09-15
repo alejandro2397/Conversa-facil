@@ -3,6 +3,7 @@ package com.alejandro.conversafacil
 import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,15 +21,17 @@ import androidx.compose.ui.unit.dp
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
-    private val speechLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val text = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-        if (!text.isNullOrBlank()) speechResult.value = text
-    }
     private val speechResult = mutableStateOf("")
+    private var tts: TextToSpeech? = null
+
+    private val speechLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { speechResult.value = it }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { ConversaFacilApp(speechResult.value, ::startListening) }
+        tts = TextToSpeech(this) { if (it == TextToSpeech.SUCCESS) tts?.language = Locale.CHINESE }
+        setContent { ConversaFacilApp(speechResult.value, ::startListening, ::speakChinese) }
     }
 
     private fun startListening() {
@@ -39,16 +42,20 @@ class MainActivity : ComponentActivity() {
         }
         speechLauncher.launch(intent)
     }
+
+    private fun speakChinese(text: String) {
+        if (text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "conversa_chino")
+    }
+
+    override fun onDestroy() { tts?.shutdown(); super.onDestroy() }
 }
 
 @Composable
-private fun ConversaFacilApp(spokenText: String, startListening: () -> Unit) {
+private fun ConversaFacilApp(spokenText: String, startListening: () -> Unit, speakChinese: (String) -> Unit) {
     var spanishText by remember { mutableStateOf("") }
     var chineseText by remember { mutableStateOf("") }
 
-    LaunchedEffect(spokenText) {
-        if (spokenText.isNotBlank()) spanishText = spokenText
-    }
+    LaunchedEffect(spokenText) { if (spokenText.isNotBlank()) spanishText = spokenText }
 
     val phrases = listOf(
         "Hola" to "你好", "¿Cómo está?" to "你好吗？", "¿Cuánto cuesta?" to "多少钱？",
@@ -69,13 +76,13 @@ private fun ConversaFacilApp(spokenText: String, startListening: () -> Unit) {
                         Text("ESPAÑOL", style = MaterialTheme.typography.labelLarge)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(spanishText.ifEmpty { "Habla o elige una frase" }, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                            IconButton(onClick = startListening) { Icon(Icons.Default.Mic, "Hablar español") }
+                            IconButton(onClick = startListening) { Icon(Icons.Default.Mic, contentDescription = "Hablar español") }
                         }
                         HorizontalDivider()
                         Text("中文", style = MaterialTheme.typography.labelLarge)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(chineseText.ifEmpty { "中文翻译会显示在这里" }, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { }) { Icon(Icons.Default.VolumeUp, "Escuchar chino") }
+                            Text(chineseText.ifEmpty { "La traducción aparecerá aquí" }, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { speakChinese(chineseText) }) { Icon(Icons.Default.VolumeUp, contentDescription = "Escuchar chino") }
                         }
                     }
                 }
