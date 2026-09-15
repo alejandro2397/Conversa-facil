@@ -23,7 +23,6 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
     private val speechResult = mutableStateOf("")
     private var tts: TextToSpeech? = null
-    private var lastChinese = ""
 
     private val speechLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { speechResult.value = it }
@@ -31,7 +30,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        tts = TextToSpeech(this) { status -> if (status == TextToSpeech.SUCCESS) tts?.language = Locale.SIMPLIFIED_CHINESE }
+        tts = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) tts?.language = Locale.SIMPLIFIED_CHINESE
+        }
         setContent { ConversaFacilApp(speechResult.value, ::startListening, ::speakChinese) }
     }
 
@@ -43,21 +44,46 @@ class MainActivity : ComponentActivity() {
         })
     }
 
-    private fun speakChinese(text: String) { if (text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "conversa_chino") }
-    override fun onDestroy() { tts?.shutdown(); super.onDestroy() }
+    private fun speakChinese(text: String) {
+        if (text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "conversa_chino")
+    }
+
+    override fun onDestroy() {
+        tts?.shutdown()
+        super.onDestroy()
+    }
 }
 
 @Composable
-private fun ConversaFacilApp(spokenText: String, startListening: () -> Unit, speakChinese: (String) -> Unit) {
+private fun ConversaFacilApp(
+    spokenText: String,
+    startListening: () -> Unit,
+    speakChinese: (String) -> Unit
+) {
     var spanishText by remember { mutableStateOf("") }
     var chineseText by remember { mutableStateOf("") }
-    LaunchedEffect(spokenText) { if (spokenText.isNotBlank()) spanishText = spokenText }
 
-    val phrases = listOf("Hola" to "你好", "¿Cómo está?" to "你好吗？", "¿Cuánto cuesta?" to "多少钱？", "Quiero comprar" to "我想买", "¿Cuántos necesita?" to "您需要多少？", "¿Tiene este producto?" to "你有这个产品吗？", "Gracias" to "谢谢", "Espere un momento" to "请等一下")
+    LaunchedEffect(spokenText) {
+        if (spokenText.isNotBlank()) spanishText = spokenText
+    }
+
+    val phrases = listOf(
+        "Hola" to "你好",
+        "¿Cómo está?" to "你好吗？",
+        "¿Cuánto cuesta?" to "多少钱？",
+        "Quiero comprar" to "我想买",
+        "¿Cuántos necesita?" to "您需要多少？",
+        "¿Tiene este producto?" to "你有这个产品吗？",
+        "Gracias" to "谢谢",
+        "Espere un momento" to "请等一下"
+    )
 
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                Modifier.fillMaxSize().padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Text("💬", style = MaterialTheme.typography.displaySmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("Conversa Fácil", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("Habla sin fronteras", style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
@@ -80,8 +106,26 @@ private fun ConversaFacilApp(spokenText: String, startListening: () -> Unit, spe
                 }
 
                 Text("⚡ Frases rápidas", style = MaterialTheme.typography.titleLarge)
-                phrases.forEach { (es, zh) -> Button(onClick = { spanishText = es; chineseText = zh; speakChinese(zh) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("$es  •  $zh") }
-                OutlinedButton(onClick = { spanishText = ""; chineseText = "" }, modifier = Modifier.fillMaxWidth()) { Text("Limpiar") }
+                phrases.forEach { (es, zh) ->
+                    Button(
+                        onClick = {
+                            spanishText = es
+                            chineseText = zh
+                            speakChinese(zh)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("$es  •  $zh")
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = { spanishText = ""; chineseText = "" },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Limpiar")
+                }
             }
         }
     }
