@@ -18,22 +18,48 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.google.mlkit.common.model.DownloadConditions
+import com.google.mlkit.nl.translate.Translation
+import com.google.mlkit.nl.translate.Translator
+import com.google.mlkit.nl.translate.TranslatorOptions
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private val speechResult = mutableStateOf("")
+    private val translationResult = mutableStateOf("")
     private var tts: TextToSpeech? = null
+    private lateinit var translator: Translator
 
     private val speechLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { speechResult.value = it }
+        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { text ->
+            speechResult.value = text
+            translateToChinese(text)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        translator = Translation.getClient(
+            TranslatorOptions.Builder()
+                .setSourceLanguage("es")
+                .setTargetLanguage("zh")
+                .build()
+        )
+        translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
+
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) tts?.language = Locale.SIMPLIFIED_CHINESE
         }
-        setContent { ConversaFacilApp(speechResult.value, ::startListening, ::speakChinese) }
+
+        setContent {
+            ConversaFacilApp(
+                spokenText = speechResult.value,
+                chineseText = translationResult.value,
+                startListening = ::startListening,
+                speakChinese = ::speakChinese
+            )
+        }
     }
 
     private fun startListening() {
@@ -44,11 +70,19 @@ class MainActivity : ComponentActivity() {
         })
     }
 
+    private fun translateToChinese(text: String) {
+        if (text.isBlank()) return
+        translator.translate(text)
+            .addOnSuccessListener { translated -> translationResult.value = translated }
+            .addOnFailureListener { translationResult.value = "No se pudo traducir. Intenta de nuevo." }
+    }
+
     private fun speakChinese(text: String) {
         if (text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "conversa_chino")
     }
 
     override fun onDestroy() {
+        translator.close()
         tts?.shutdown()
         super.onDestroy()
     }
@@ -57,33 +91,29 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ConversaFacilApp(
     spokenText: String,
+    chineseText: String,
     startListening: () -> Unit,
     speakChinese: (String) -> Unit
 ) {
     var spanishText by remember { mutableStateOf("") }
-    var chineseText by remember { mutableStateOf("") }
+    var chineseTranslation by remember { mutableStateOf("") }
 
     LaunchedEffect(spokenText) {
         if (spokenText.isNotBlank()) spanishText = spokenText
     }
+    LaunchedEffect(chineseText) {
+        if (chineseText.isNotBlank()) chineseTranslation = chineseText
+    }
 
     val phrases = listOf(
-        "Hola" to "你好",
-        "¿Cómo está?" to "你好吗？",
-        "¿Cuánto cuesta?" to "多少钱？",
-        "Quiero comprar" to "我想买",
-        "¿Cuántos necesita?" to "您需要多少？",
-        "¿Tiene este producto?" to "你有这个产品吗？",
-        "Gracias" to "谢谢",
-        "Espere un momento" to "请等一下"
+        "Hola" to "你好", "¿Cómo está?" to "你好吗？", "¿Cuánto cuesta?" to "多少钱？",
+        "Quiero comprar" to "我想买", "¿Cuántos necesita?" to "您需要多少？",
+        "¿Tiene este producto?" to "你有这个产品吗？", "Gracias" to "谢谢", "Espere un momento" to "请等一下"
     )
 
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
-            Column(
-                Modifier.fillMaxSize().padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("💬", style = MaterialTheme.typography.displaySmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("Conversa Fácil", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Text("Habla sin fronteras", style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
@@ -99,8 +129,8 @@ private fun ConversaFacilApp(
                         HorizontalDivider()
                         Text("中文", style = MaterialTheme.typography.labelLarge)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(chineseText.ifEmpty { "La traducción aparecerá aquí" }, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { speakChinese(chineseText) }) { Icon(Icons.Default.VolumeUp, contentDescription = "Escuchar chino") }
+                            Text(chineseTranslation.ifEmpty { "La traducción aparecerá aquí" }, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { speakChinese(chineseTranslation) }) { Icon(Icons.Default.VolumeUp, contentDescription = "Escuchar chino") }
                         }
                     }
                 }
@@ -108,22 +138,13 @@ private fun ConversaFacilApp(
                 Text("⚡ Frases rápidas", style = MaterialTheme.typography.titleLarge)
                 phrases.forEach { (es, zh) ->
                     Button(
-                        onClick = {
-                            spanishText = es
-                            chineseText = zh
-                            speakChinese(zh)
-                        },
+                        onClick = { spanishText = es; chineseTranslation = zh },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Text("$es  •  $zh")
-                    }
+                    ) { Text("$es  •  $zh") }
                 }
 
-                OutlinedButton(
-                    onClick = { spanishText = ""; chineseText = "" },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                OutlinedButton(onClick = { spanishText = ""; chineseTranslation = "" }, modifier = Modifier.fillMaxWidth()) {
                     Text("Limpiar")
                 }
             }
