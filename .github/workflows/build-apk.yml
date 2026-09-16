@@ -90,30 +90,32 @@ jobs:
       - name: Decode and validate keystore
         env:
           KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         run: |
-          echo "🔓 Decodificando keystore desde Base64..."
-          
-          # Decodificar el Base64 eliminando saltos de línea y espacios
-          echo "$KEYSTORE_B64" | tr -d '\n\r ' | base64 --decode > "${{ github.workspace }}/release-key.jks" 2>/dev/null
-          
-          # Validar que el archivo se creó y tiene contenido
-          if [ ! -f "${{ github.workspace }}/release-key.jks" ]; then
-            echo "❌ ERROR: No se pudo crear el archivo keystore"
-            echo "          Verifica que RELEASE_KEYSTORE_BASE64 esté en formato Base64 válido"
+          set -e
+
+          echo "🔓 Verificando keystore..."
+
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "❌ RELEASE_KEYSTORE_BASE64 está vacío"
             exit 1
           fi
-          
-          # Verificar que no está vacío
-          if [ ! -s "${{ github.workspace }}/release-key.jks" ]; then
-            echo "❌ ERROR: El archivo keystore está vacío"
-            echo "          El Base64 decodificó a 0 bytes"
+
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > release-key.jks
+
+          if [ ! -s release-key.jks ]; then
+            echo "❌ El keystore resultante está vacío"
             exit 1
           fi
-          
-          FILE_SIZE=$(stat -f%z "${{ github.workspace }}/release-key.jks" 2>/dev/null || stat -c%s "${{ github.workspace }}/release-key.jks" 2>/dev/null)
-          echo "✅ Keystore decodificado exitosamente (${FILE_SIZE} bytes)"
-          
-          # Limpiar variables sensibles de la memoria
+
+          FILE_SIZE=$(stat -c%s release-key.jks)
+          echo "✅ Keystore decodificado correctamente (${FILE_SIZE} bytes)"
+
+          keytool -list -keystore release-key.jks             -storepass "$RELEASE_STORE_PASSWORD"             -alias "$RELEASE_KEY_ALIAS" > /dev/null
+
+          echo "✅ Keystore y credenciales válidos"
+
           unset KEYSTORE_B64
 
       # 🛠️ Compilar APK firmado
