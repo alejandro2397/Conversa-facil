@@ -23,7 +23,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      # 🔐 Validar que todos los secretos existen
+      # 🔐 Verificación segura de secretos - Solo muestra SET/MISSING
       - name: Validate secrets availability
         env:
           KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -32,33 +32,56 @@ jobs:
           KEY_PWD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           echo "🔍 Verificando disponibilidad de secretos..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Verificar cada secreto sin imprimir su valor
+          SECRETS_OK=true
           
           if [ -z "$KEYSTORE_B64" ]; then
-            echo "❌ ERROR: Secret 'RELEASE_KEYSTORE_BASE64' no disponible o vacío"
-            exit 1
+            echo "RELEASE_KEYSTORE_BASE64: MISSING ❌"
+            SECRETS_OK=false
           else
-            echo "✓ RELEASE_KEYSTORE_BASE64 existe (${#KEYSTORE_B64} caracteres)"
+            echo "RELEASE_KEYSTORE_BASE64: SET ✓"
           fi
           
           if [ -z "$STORE_PWD" ]; then
-            echo "❌ ERROR: Secret 'RELEASE_STORE_PASSWORD' no disponible o vacío"
-            exit 1
+            echo "RELEASE_STORE_PASSWORD: MISSING ❌"
+            SECRETS_OK=false
           else
-            echo "✓ RELEASE_STORE_PASSWORD existe"
+            echo "RELEASE_STORE_PASSWORD: SET ✓"
           fi
           
           if [ -z "$KEY_ALIAS" ]; then
-            echo "❌ ERROR: Secret 'RELEASE_KEY_ALIAS' no disponible o vacío"
-            exit 1
+            echo "RELEASE_KEY_ALIAS: MISSING ❌"
+            SECRETS_OK=false
           else
-            echo "✓ RELEASE_KEY_ALIAS existe"
+            echo "RELEASE_KEY_ALIAS: SET ✓"
           fi
           
           if [ -z "$KEY_PWD" ]; then
-            echo "❌ ERROR: Secret 'RELEASE_KEY_PASSWORD' no disponible o vacío"
-            exit 1
+            echo "RELEASE_KEY_PASSWORD: MISSING ❌"
+            SECRETS_OK=false
           else
-            echo "✓ RELEASE_KEY_PASSWORD existe"
+            echo "RELEASE_KEY_PASSWORD: SET ✓"
+          fi
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          if [ "$SECRETS_OK" = false ]; then
+            echo ""
+            echo "❌ ALGUNOS SECRETOS NO ESTÁN DISPONIBLES"
+            echo ""
+            echo "🔧 Diagnóstico:"
+            echo "  1. Este workflow se ejecuta desde: ${{ github.ref }}"
+            echo "  2. Contexto: ${{ github.event_name }}"
+            echo "  3. Rama: ${{ github.ref_name }}"
+            echo ""
+            echo "✅ Soluciones:"
+            echo "  • Verifica que los secretos existan en Settings → Secrets and variables → Actions"
+            echo "  • Los secretos deben estar configurados a nivel REPOSITORY (no ORGANIZATION)"
+            echo "  • Si es un fork, copia los secretos al repositorio forked"
+            echo ""
+            exit 1
           fi
           
           echo "✅ Todos los secretos están disponibles"
@@ -82,6 +105,7 @@ jobs:
           # Verificar que no está vacío
           if [ ! -s "${{ github.workspace }}/release-key.jks" ]; then
             echo "❌ ERROR: El archivo keystore está vacío"
+            echo "          El Base64 decodificó a 0 bytes"
             exit 1
           fi
           
