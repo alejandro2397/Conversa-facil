@@ -93,12 +93,13 @@ jobs:
         run: |
           echo "🔓 Decodificando keystore desde Base64..."
           
-          # Decodificar el Base64 en el archivo .jks
-          echo "$KEYSTORE_B64" | base64 --decode > "${{ github.workspace }}/release-key.jks" 2>/dev/null
+          # Decodificar el Base64 eliminando saltos de línea y espacios
+          echo "$KEYSTORE_B64" | tr -d '\n\r ' | base64 --decode > "${{ github.workspace }}/release-key.jks" 2>/dev/null
           
           # Validar que el archivo se creó y tiene contenido
           if [ ! -f "${{ github.workspace }}/release-key.jks" ]; then
             echo "❌ ERROR: No se pudo crear el archivo keystore"
+            echo "          Verifica que RELEASE_KEYSTORE_BASE64 esté en formato Base64 válido"
             exit 1
           fi
           
