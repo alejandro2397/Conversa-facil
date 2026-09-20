@@ -75,38 +75,41 @@ jobs:
           KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        shell: bash
         run: |
           set -Eeuo pipefail
 
           echo "Decodificando keystore..."
-          printf '%s' "$KEYSTORE_B64" | base64 --decode > release-key.jks
 
-          if [ ! -s release-key.jks ]; then
-            echo "El keystore está vacío."
+          printf '%s' "$KEYSTORE_B64" |
+            tr -d '[:space:]' |
+            base64 --decode --ignore-garbage > release-key.p12
+
+          if [ ! -s release-key.p12 ]; then
+            echo "❌ El keystore quedó vacío."
             exit 1
           fi
 
-          FILE_SIZE=$(stat -c%s release-key.jks)
-          echo "Keystore decodificado correctamente (${FILE_SIZE} bytes)"
+          FILE_SIZE=$(stat -c%s release-key.p12)
+          echo "✅ Keystore decodificado: ${FILE_SIZE} bytes"
 
-          echo "Validando keystore PKCS12..."
+          if [ "$FILE_SIZE" -ne 2792 ]; then
+            echo "❌ El Secret RELEASE_KEYSTORE_BASE64 no coincide con el keystore original."
+            echo "   Esperados: 2792 bytes"
+            echo "   Obtenidos: ${FILE_SIZE} bytes"
+            echo "   El problema está en el contenido del Secret, no en Gradle."
+            exit 1
+          fi
 
-          keytool -list \
-            -storetype PKCS12 \
-            -keystore release-key.jks \
-            -storepass "$RELEASE_STORE_PASSWORD" \
-            >/dev/null
+          echo "Validando PKCS12 y alias..."
 
-          keytool -list \
-            -storetype PKCS12 \
-            -keystore release-key.jks \
-            -storepass "$RELEASE_STORE_PASSWORD" \
-            -alias "$RELEASE_KEY_ALIAS" \
-            >/dev/null
+          keytool -list             -storetype PKCS12             -keystore release-key.p12             -storepass "$RELEASE_STORE_PASSWORD"             >/dev/null
 
-          echo "Keystore PKCS12 y alias válidos."
+          keytool -list             -storetype PKCS12             -keystore release-key.p12             -storepass "$RELEASE_STORE_PASSWORD"             -alias "$RELEASE_KEY_ALIAS"             >/dev/null
+
+          echo "✅ Keystore PKCS12 y alias válidos."
+
           unset KEYSTORE_B64
-
       - name: Build release APK
         env:
           RELEASE_STORE_FILE: ${{ github.workspace }}/release-key.jks
