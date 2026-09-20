@@ -128,6 +128,41 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun LanguageSelector(
+    title: String,
+    selected: AppLanguage,
+    onSelect: (AppLanguage) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(title + ": " + selected.flag + " " + selected.name + "  ▼")
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 430.dp)
+        ) {
+            languages.forEach { language ->
+                DropdownMenuItem(
+                    text = { Text(language.flag + "  " + language.name) },
+                    onClick = {
+                        onSelect(language)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ConversaFacilApp(
     spokenText: String,
     translatedText: String,
@@ -138,8 +173,7 @@ private fun ConversaFacilApp(
     var target by remember { mutableStateOf(languages[2]) }
     var sourceText by remember { mutableStateOf("") }
     var targetText by remember { mutableStateOf("") }
-    var menuOpen by remember { mutableStateOf(false) }
-    var selectingSource by remember { mutableStateOf(true) }
+
 
     LaunchedEffect(spokenText) {
         if (spokenText.isNotBlank()) sourceText = spokenText
@@ -168,45 +202,28 @@ private fun ConversaFacilApp(
                 Text("Habla • traduce • escucha", style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
 
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Button(onClick = {
-                                selectingSource = true
-                                menuOpen = true
-                            }) { Text("${source.flag} ${source.name}") }
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("IDIOMAS", fontWeight = FontWeight.Bold)
 
-                            IconButton(onClick = ::swapLanguages) {
-                                Icon(Icons.Default.SwapHoriz, "Cambiar idiomas")
+                        LanguageSelector("Tú hablas", source) { language ->
+                            if (language.code != target.code) {
+                                source = language
+                                sourceText = ""
+                                targetText = ""
                             }
-
-                            Button(onClick = {
-                                selectingSource = false
-                                menuOpen = true
-                            }) { Text("${target.flag} ${target.name}") }
                         }
 
-                        DropdownMenu(
-                            expanded = menuOpen,
-                            onDismissRequest = { menuOpen = false }
+                        IconButton(
+                            onClick = ::swapLanguages,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
                         ) {
-                            languages.forEach { language ->
-                                DropdownMenuItem(
-                                    text = { Text("${language.flag} ${language.name}") },
-                                    onClick = {
-                                        if (selectingSource) {
-                                            if (language.code != target.code) source = language
-                                        } else {
-                                            if (language.code != source.code) target = language
-                                        }
-                                        menuOpen = false
-                                        sourceText = ""
-                                        targetText = ""
-                                    }
-                                )
+                            Icon(Icons.Default.SwapHoriz, contentDescription = "Cambiar idiomas")
+                        }
+
+                        LanguageSelector("Traducir a", target) { language ->
+                            if (language.code != source.code) {
+                                target = language
+                                targetText = ""
                             }
                         }
                     }
