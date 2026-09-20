@@ -1,146 +1,133 @@
 name: Build APK
 
 on:
-workflow_dispatch:
-push:
-branches: [ main ]
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Set up JDK 17
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: '17'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-  - name: Set up Gradle
-    uses: gradle/actions/setup-gradle@v4
-    with:
-      gradle-version: '8.9'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
-  - name: Validate secrets availability
-    env:
-      KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-      STORE_PWD: ${{ secrets.RELEASE_STORE_PASSWORD }}
-      KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-      KEY_PWD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-    run: |
-      echo "🔍 Verificando secretos..."
+      - name: Validate secrets availability
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          STORE_PWD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PWD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          echo "Verificando secretos..."
+          SECRETS_OK=true
 
-      SECRETS_OK=true
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "RELEASE_KEYSTORE_BASE64: MISSING"
+            SECRETS_OK=false
+          else
+            echo "RELEASE_KEYSTORE_BASE64: SET"
+          fi
 
-      if [ -z "$KEYSTORE_B64" ]; then
-        echo "RELEASE_KEYSTORE_BASE64: MISSING ❌"
-        SECRETS_OK=false
-      else
-        echo "RELEASE_KEYSTORE_BASE64: SET ✓"
-      fi
+          if [ -z "$STORE_PWD" ]; then
+            echo "RELEASE_STORE_PASSWORD: MISSING"
+            SECRETS_OK=false
+          else
+            echo "RELEASE_STORE_PASSWORD: SET"
+          fi
 
-      if [ -z "$STORE_PWD" ]; then
-        echo "RELEASE_STORE_PASSWORD: MISSING ❌"
-        SECRETS_OK=false
-      else
-        echo "RELEASE_STORE_PASSWORD: SET ✓"
-      fi
+          if [ -z "$KEY_ALIAS" ]; then
+            echo "RELEASE_KEY_ALIAS: MISSING"
+            SECRETS_OK=false
+          else
+            echo "RELEASE_KEY_ALIAS: SET"
+          fi
 
-      if [ -z "$KEY_ALIAS" ]; then
-        echo "RELEASE_KEY_ALIAS: MISSING ❌"
-        SECRETS_OK=false
-      else
-        echo "RELEASE_KEY_ALIAS: SET ✓"
-      fi
+          if [ -z "$KEY_PWD" ]; then
+            echo "RELEASE_KEY_PASSWORD: MISSING"
+            SECRETS_OK=false
+          else
+            echo "RELEASE_KEY_PASSWORD: SET"
+          fi
 
-      if [ -z "$KEY_PWD" ]; then
-        echo "RELEASE_KEY_PASSWORD: MISSING ❌"
-        SECRETS_OK=false
-      else
-        echo "RELEASE_KEY_PASSWORD: SET ✓"
-      fi
+          if [ "$SECRETS_OK" = false ]; then
+            echo "Faltan uno o más secretos."
+            exit 1
+          fi
 
-      if [ "$SECRETS_OK" = false ]; then
-        echo "❌ Faltan uno o más secretos."
-        exit 1
-      fi
+          echo "Todos los secretos están disponibles."
 
-      echo "✅ Todos los secretos están disponibles."
+      - name: Decode and validate keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        run: |
+          set -Eeuo pipefail
 
-  - name: Decode and validate keystore
-    env:
-      KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-      RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
-      RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-    run: |
-      set -Eeuo pipefail
+          echo "Decodificando keystore..."
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > release-key.jks
 
-      echo "🔓 Decodificando keystore..."
+          if [ ! -s release-key.jks ]; then
+            echo "El keystore está vacío."
+            exit 1
+          fi
 
-      printf '%s' "$KEYSTORE_B64" | base64 --decode > release-key.jks
+          FILE_SIZE=$(stat -c%s release-key.jks)
+          echo "Keystore decodificado correctamente (${FILE_SIZE} bytes)"
 
-      if [ ! -s release-key.jks ]; then
-        echo "❌ El keystore está vacío."
-        exit 1
-      fi
+          echo "Validando keystore PKCS12..."
 
-      FILE_SIZE=$(stat -c%s release-key.jks)
-      echo "✅ Keystore decodificado correctamente (${FILE_SIZE} bytes)"
+          keytool -list \
+            -storetype PKCS12 \
+            -keystore release-key.jks \
+            -storepass "$RELEASE_STORE_PASSWORD" \
+            >/dev/null
 
-      echo "🔎 Validando keystore PKCS12..."
+          keytool -list \
+            -storetype PKCS12 \
+            -keystore release-key.jks \
+            -storepass "$RELEASE_STORE_PASSWORD" \
+            -alias "$RELEASE_KEY_ALIAS" \
+            >/dev/null
 
-      if ! keytool -list \
-        -storetype PKCS12 \
-        -keystore release-key.jks \
-        -storepass "$RELEASE_STORE_PASSWORD" \
-        >/dev/null 2>&1; then
-        echo "❌ No se pudo abrir el keystore."
-        echo "Comprueba RELEASE_STORE_PASSWORD."
-        exit 1
-      fi
+          echo "Keystore PKCS12 y alias válidos."
+          unset KEYSTORE_B64
 
-      if ! keytool -list \
-        -storetype PKCS12 \
-        -keystore release-key.jks \
-        -storepass "$RELEASE_STORE_PASSWORD" \
-        -alias "$RELEASE_KEY_ALIAS" \
-        >/dev/null 2>&1; then
-        echo "❌ El alias no coincide con el keystore."
-        echo "El alias esperado es: conversa-facil"
-        exit 1
-      fi
+      - name: Build release APK
+        env:
+          RELEASE_STORE_FILE: ${{ github.workspace }}/release-key.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          echo "Compilando APK de release firmado..."
+          gradle assembleRelease --stacktrace
+          echo "Compilación exitosa."
 
-      echo "✅ Keystore PKCS12 válido."
-      echo "✅ Alias válido."
+      - name: Upload signed release APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conversa-facil-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 30
 
-      unset KEYSTORE_B64
-
-  - name: Build release APK
-    env:
-      RELEASE_STORE_FILE: ${{ github.workspace }}/release-key.jks
-      RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
-      RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-      RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-    run: |
-      echo "🔨 Compilando APK de release firmado..."
-
-      gradle assembleRelease --stacktrace
-
-      echo "✅ Compilación exitosa."
-
-  - name: Upload signed release APK
-    if: success()
-    uses: actions/upload-artifact@v4
-    with:
-      name: conversa-facil-release-apk
-      path: app/build/outputs/apk/release/*.apk
-      retention-days: 30
-
-  - name: Cleanup sensitive files
-    if: always()
-    run: |
-      rm -f "${{ github.workspace }}/release-key.jks"
-      echo "✅ Archivos sensibles eliminados."
+      - name: Cleanup sensitive files
+        if: always()
+        run: |
+          rm -f "${{ github.workspace }}/release-key.jks"
+          echo "Limpieza completada."
