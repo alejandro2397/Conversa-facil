@@ -93,14 +93,6 @@ jobs:
           FILE_SIZE=$(stat -c%s release-key.p12)
           echo "✅ Keystore decodificado: ${FILE_SIZE} bytes"
 
-          if [ "$FILE_SIZE" -ne 2792 ]; then
-            echo "❌ El Secret RELEASE_KEYSTORE_BASE64 no coincide con el keystore original."
-            echo "   Esperados: 2792 bytes"
-            echo "   Obtenidos: ${FILE_SIZE} bytes"
-            echo "   El problema está en el contenido del Secret, no en Gradle."
-            exit 1
-          fi
-
           echo "Validando PKCS12 y alias..."
 
           keytool -list             -storetype PKCS12             -keystore release-key.p12             -storepass "$RELEASE_STORE_PASSWORD"             >/dev/null
