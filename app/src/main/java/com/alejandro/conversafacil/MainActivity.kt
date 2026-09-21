@@ -1,5 +1,8 @@
 package com.alejandro.conversafacil
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
@@ -7,28 +10,29 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.Translation
@@ -62,22 +66,26 @@ class MainActivity : ComponentActivity() {
     private var lastSource = "es"
     private var lastTarget = "zh"
 
-    private val speechLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { text ->
-            speechResult.value = text
-            translate(text, lastSource, lastTarget)
+    private val speechLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()?.let { text ->
+                    speechResult.value = text
+                    translate(text, lastSource, lastTarget)
+                }
         }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, null)
+
         setContent {
             ConversaFacilApp(
                 spokenText = speechResult.value,
                 translatedText = translationResult.value,
                 startListening = ::startListening,
-                speak = ::speak
+                speak = ::speak,
+                copyText = ::copyText
             )
         }
     }
@@ -97,17 +105,19 @@ class MainActivity : ComponentActivity() {
             translationResult.value = if (source == target) text else ""
             return
         }
+
         val translator = Translation.getClient(
             TranslatorOptions.Builder()
                 .setSourceLanguage(source)
                 .setTargetLanguage(target)
                 .build()
         )
+
         translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
             .addOnSuccessListener {
                 translator.translate(text)
-                    .addOnSuccessListener { result ->
-                        translationResult.value = result
+                    .addOnSuccessListener {
+                        translationResult.value = it
                         translator.close()
                     }
                     .addOnFailureListener {
@@ -129,6 +139,12 @@ class MainActivity : ComponentActivity() {
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "conversa_voz")
     }
 
+    private fun copyText(text: String) {
+        if (text.isBlank()) return
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Conversa Fácil", text))
+    }
+
     override fun onDestroy() {
         tts?.shutdown()
         super.onDestroy()
@@ -138,19 +154,31 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LanguageSelector(
-    title: String,
     selected: AppLanguage,
     onSelect: (AppLanguage) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     Box {
-        OutlinedButton(
+        Surface(
             onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(18.dp),
+            color = Color.White,
+            tonalElevation = 2.dp,
+            shadowElevation = 2.dp
         ) {
-            Text(title + ": " + selected.flag + " " + selected.name + "  ▼")
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(selected.flag, style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    selected.name,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF203A5F)
+                )
+            }
         }
 
         DropdownMenu(
@@ -160,7 +188,12 @@ private fun LanguageSelector(
         ) {
             languages.forEach { language ->
                 DropdownMenuItem(
-                    text = { Text(language.flag + "  " + language.name) },
+                    text = {
+                        Text(
+                            "${language.flag}  ${language.name}",
+                            fontWeight = if (language.code == selected.code) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
                     onClick = {
                         onSelect(language)
                         expanded = false
@@ -176,198 +209,333 @@ private fun ConversaFacilApp(
     spokenText: String,
     translatedText: String,
     startListening: (AppLanguage, AppLanguage) -> Unit,
-    speak: (String, AppLanguage) -> Unit
+    speak: (String, AppLanguage) -> Unit,
+    copyText: (String) -> Unit
 ) {
     var source by remember { mutableStateOf(languages[0]) }
     var target by remember { mutableStateOf(languages[2]) }
     var sourceText by remember { mutableStateOf("") }
     var targetText by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
-    val micScale by animateFloatAsState(if (isListening) 1.08f else 1f, tween(220), label = "micScale")
 
+    val micScale by animateFloatAsState(
+        targetValue = if (isListening) 1.06f else 1f,
+        animationSpec = tween(180),
+        label = "micScale"
+    )
 
     LaunchedEffect(spokenText) {
-        if (spokenText.isNotBlank()) isListening = false
-        if (spokenText.isNotBlank()) sourceText = spokenText
+        if (spokenText.isNotBlank()) {
+            isListening = false
+            sourceText = spokenText
+        }
     }
+
     LaunchedEffect(translatedText) {
         if (translatedText.isNotBlank()) targetText = translatedText
+    }
+
+    fun clearConversation() {
+        sourceText = ""
+        targetText = ""
     }
 
     fun swapLanguages() {
         val oldSource = source
         source = target
         target = oldSource
+
         val oldText = sourceText
         sourceText = targetText
         targetText = oldText
     }
 
-    MaterialTheme {
-        Surface(Modifier.fillMaxSize(), color = Color(0xFFF5F8FF)) {
+    MaterialTheme(
+        colorScheme = lightColorScheme(
+            primary = Color(0xFF315BEA),
+            secondary = Color(0xFF00A98F),
+            background = Color(0xFFF4F7FC),
+            surface = Color.White
+        )
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color(0xFFF4F7FC)
+        ) {
             Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 18.dp)
             ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.linearGradient(
-                                listOf(Color(0xFF087CF2), Color(0xFF6537E8), Color(0xFFD52CCB))
-                            )
-                        )
-                        .padding(horizontal = 20.dp, vertical = 24.dp)
-                ) {
-                    Column(
-                        Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text("A  文", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold), color = Color.White)
-                        Text("Conversa Fácil", style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold), color = Color.White)
-                        Text("Sin barreras, solo comunicación", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = Color.White)
-                    }
-                }
+                Header()
 
                 Column(
-                    Modifier.padding(horizontal = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+                    Spacer(Modifier.height(2.dp))
+
                     Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        LanguageSelector("Tú hablas", source) { language ->
-                            if (language.code != target.code) {
-                                source = language
-                                sourceText = ""
-                                targetText = ""
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "YO",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFF607796)
+                            )
+                            LanguageSelector(source) {
+                                if (it.code != target.code) {
+                                    source = it
+                                    clearConversation()
+                                }
                             }
                         }
+
+                        Spacer(Modifier.width(10.dp))
+
+                        FilledIconButton(
+                            onClick = ::swapLanguages,
+                            modifier = Modifier.size(44.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = Color(0xFF315BEA)
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.SwapHoriz,
+                                contentDescription = "Cambiar idiomas",
+                                tint = Color.White
+                            )
+                        }
+
+                        Spacer(Modifier.width(10.dp))
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "OTRA PERSONA",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFF607796)
+                            )
+                            LanguageSelector(target) {
+                                if (it.code != source.code) {
+                                    target = it
+                                    clearConversation()
+                                }
+                            }
+                        }
+                    }
+
+                    ConversationCard(
+                        language = source,
+                        text = sourceText,
+                        isSource = true,
+                        onSpeak = { speak(sourceText, source) },
+                        onCopy = { copyText(sourceText) }
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            color = Color(0xFFD7E0EE)
+                        )
+
+                        Spacer(Modifier.width(12.dp))
 
                         Surface(
-                            modifier = Modifier.size(46.dp),
+                            modifier = Modifier
+                                .size(62.dp)
+                                .scale(micScale),
                             shape = CircleShape,
-                            color = Color(0xFF3159E8),
-                            shadowElevation = 6.dp
+                            color = Color.White,
+                            shadowElevation = 5.dp
                         ) {
-                            IconButton(onClick = ::swapLanguages) {
-                                Icon(Icons.Default.SwapHoriz, contentDescription = "Cambiar idiomas", tint = Color.White)
+                            IconButton(
+                                onClick = {
+                                    isListening = true
+                                    startListening(source, target)
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Mic,
+                                    contentDescription = "Hablar",
+                                    tint = Color(0xFF315BEA),
+                                    modifier = Modifier.size(28.dp)
+                                )
                             }
                         }
 
-                        LanguageSelector("Traducir a", target) { language ->
-                            if (language.code != source.code) {
-                                target = language
-                                targetText = ""
-                            }
-                        }
+                        Spacer(Modifier.width(12.dp))
+
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            color = Color(0xFFD7E0EE)
+                        )
                     }
 
-                    Card(
-                        Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(26.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
-                    ) {
-                        Column(
-                            Modifier.padding(18.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Text(
-                                "${source.flag}  ${source.name}",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                color = Color(0xFF183A70)
-                            )
-                            Text(
-                                sourceText.ifEmpty { "Toca el micrófono y habla" },
-                                style = MaterialTheme.typography.headlineSmall,
-                                textAlign = TextAlign.Center,
-                                color = Color(0xFF526A8A)
-                            )
-
-                            Surface(
-                                modifier = Modifier.size(112.dp).scale(micScale),
-                                shape = CircleShape,
-                                color = Color(0xFFE4F0FF),
-                                shadowElevation = 2.dp
-                            ) {
-                                IconButton(onClick = { isListening = true; startListening(source, target) }) {
-                                    Surface(
-                                        modifier = Modifier.size(78.dp),
-                                        shape = CircleShape,
-                                        color = Color(0xFF1685F5),
-                                        shadowElevation = 8.dp
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(Icons.Default.Mic, contentDescription = "Hablar", tint = Color.White, modifier = Modifier.size(38.dp))
-                                        }
-                                    }
-                                }
-                            }
-
-                            AnimatedVisibility(visible = isListening) {
-                                Text("🎙️ Escuchando...", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1685F5))
-                            }
-                            if (!isListening) Text("Toca para hablar", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF173B70))
-                        }
+                    AnimatedVisibility(visible = isListening) {
+                        Text(
+                            "Escuchando…",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF315BEA)
+                        )
                     }
 
-                    Card(
-                        Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(26.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFFFFB)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ConversationCard(
+                        language = target,
+                        text = targetText,
+                        isSource = false,
+                        onSpeak = { speak(targetText, target) },
+                        onCopy = { copyText(targetText) }
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Column(
-                            Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        OutlinedButton(
+                            onClick = ::clearConversation,
+                            enabled = sourceText.isNotBlank() || targetText.isNotBlank(),
+                            shape = RoundedCornerShape(14.dp)
                         ) {
-                            Text("✨  Traducción", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = Color(0xFF079C73))
-                            AnimatedVisibility(visible = targetText.isNotBlank()) {
-                                Text(targetText, style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))
-                            }
-                            if (targetText.isBlank()) Text("Aquí aparecerá la traducción...", style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))
-
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Button(
-                                    onClick = { speak(targetText, target) },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B35E8))
-                                ) {
-                                    Icon(Icons.Default.VolumeUp, null)
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Escuchar")
-                                }
-
-                                OutlinedButton(
-                                    onClick = { sourceText = ""; targetText = "" },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(16.dp)
-                                ) {
-                                    Text("Limpiar")
-                                }
-                            }
+                            Text("Limpiar conversación")
                         }
                     }
 
                     Text(
-                        "15 idiomas disponibles",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF38577F),
-                        modifier = Modifier.padding(horizontal = 4.dp)
+                        "Habla en tu idioma y deja que Conversa Fácil haga el resto.",
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF71839B)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Header() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                Brush.horizontalGradient(
+                    listOf(Color(0xFF315BEA), Color(0xFF6843D9))
+                )
+            )
+            .padding(horizontal = 20.dp, vertical = 22.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(46.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White.copy(alpha = 0.18f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        "CF",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column {
+                Text(
+                    "Conversa Fácil",
+                    color = Color.White,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold)
+                )
+                Text(
+                    "Habla. Traduce. Entiende.",
+                    color = Color.White.copy(alpha = 0.86f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConversationCard(
+    language: AppLanguage,
+    text: String,
+    isSource: Boolean,
+    onSpeak: () -> Unit,
+    onCopy: () -> Unit
+) {
+    val container = if (isSource) Color.White else Color(0xFFEAFBF6)
+    val labelColor = if (isSource) Color(0xFF315BEA) else Color(0xFF008B72)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(language.flag, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    language.name,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = labelColor
+                )
+                Spacer(Modifier.weight(1f))
+
+                IconButton(
+                    onClick = onCopy,
+                    enabled = text.isNotBlank()
+                ) {
+                    Icon(
+                        Icons.Default.ContentCopy,
+                        contentDescription = "Copiar",
+                        tint = labelColor
                     )
                 }
 
-                Spacer(Modifier.height(8.dp))
+                IconButton(
+                    onClick = onSpeak,
+                    enabled = text.isNotBlank()
+                ) {
+                    Icon(
+                        Icons.Default.VolumeUp,
+                        contentDescription = "Escuchar",
+                        tint = labelColor
+                    )
+                }
             }
+
+            Text(
+                text = text.ifBlank {
+                    if (isSource) "Toca el micrófono para hablar…" else "La traducción aparecerá aquí…"
+                },
+                style = MaterialTheme.typography.titleLarge,
+                color = if (text.isBlank()) Color(0xFF8A9AAF) else Color(0xFF233A58),
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
