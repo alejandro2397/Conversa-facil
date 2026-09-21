@@ -315,7 +315,8 @@ private fun ConversaFacilApp(
 
                             AnimatedVisibility(visible = isListening) {
                                 Text("🎙️ Escuchando...", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1685F5))
-                            }\n                            if (!isListening) Text("Toca para hablar", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF173B70))
+                            }
+                            if (!isListening) Text("Toca para hablar", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF173B70))
                         }
                     }
 
@@ -332,7 +333,8 @@ private fun ConversaFacilApp(
                             Text("✨  Traducción", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = Color(0xFF079C73))
                             AnimatedVisibility(visible = targetText.isNotBlank()) {
                                 Text(targetText, style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))
-                            }\n                            if (targetText.isBlank()) Text("Aquí aparecerá la traducción...", style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))
+                            }
+                            if (targetText.isBlank()) Text("Aquí aparecerá la traducción...", style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))
 
                             Row(
                                 Modifier.fillMaxWidth(),
