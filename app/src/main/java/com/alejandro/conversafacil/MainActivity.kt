@@ -326,7 +326,7 @@ private fun ConversaFacilApp(
 }
 
 @Composable
-private fun HomeContent(
+private fun ColumnScope.HomeContent(
     source: AppLanguage, target: AppLanguage, sourceText: String, targetText: String,
     startListening: (AppLanguage, AppLanguage) -> Unit, speak: (String, AppLanguage) -> Unit,
     copyText: (String) -> Unit, clear: () -> Unit, swap: () -> Unit,
@@ -358,7 +358,7 @@ private fun HomeContent(
 }
 
 @Composable
-private fun SavedScreen(title: String, items: List<String>, remove: (String) -> Unit) {
+private fun ColumnScope.SavedScreen(title: String, items: List<String>, remove: (String) -> Unit) {
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
         if (items.isEmpty()) Text("Todavía no hay nada aquí.", color = Color(0xFF71839B))
@@ -376,7 +376,7 @@ private fun SavedScreen(title: String, items: List<String>, remove: (String) -> 
 }
 
 @Composable
-private fun MoreScreen(openPhoto: () -> Unit, travel: () -> Unit, speed: () -> Unit) {
+private fun ColumnScope.MoreScreen(openPhoto: () -> Unit, travel: () -> Unit, speed: () -> Unit) {
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Más funciones", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
         FeatureCard("📸 Traducir desde fotos", "Detecta texto de una imagen y lo traduce.", openPhoto)
