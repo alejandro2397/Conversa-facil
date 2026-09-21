@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -187,7 +186,6 @@ private fun ConversaFacilApp(
     var sourceText by remember { mutableStateOf("") }
     var targetText by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
-    val micScale by animateFloatAsState(if (isListening) 1.08f else 1f, tween(220), label = "micScale")
     val pulse = rememberInfiniteTransition(label = "pulse")
     val pulseScale by pulse.animateFloat(1f, 1.08f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "pulseScale")
 
@@ -315,7 +313,9 @@ private fun ConversaFacilApp(
                                 }
                             }
 
-                            AnimatedVisibility(visible = isListening) {\n                                Text("🎙️ Escuchando...", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1685F5))\n                            }\n                            if (!isListening) Text("Toca para hablar", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF173B70))
+                            AnimatedVisibility(visible = isListening) {
+                                Text("🎙️ Escuchando...", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1685F5))
+                            }\n                            if (!isListening) Text("Toca para hablar", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF173B70))
                         }
                     }
 
@@ -330,7 +330,9 @@ private fun ConversaFacilApp(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text("✨  Traducción", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = Color(0xFF079C73))
-                            AnimatedVisibility(visible = targetText.isNotBlank()) {\n                                Text(targetText, style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))\n                            }\n                            if (targetText.isBlank()) Text("Aquí aparecerá la traducción...", style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))
+                            AnimatedVisibility(visible = targetText.isNotBlank()) {
+                                Text(targetText, style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))
+                            }\n                            if (targetText.isBlank()) Text("Aquí aparecerá la traducción...", style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))
 
                             Row(
                                 Modifier.fillMaxWidth(),
