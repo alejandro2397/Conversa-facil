@@ -47,6 +47,6 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("com.google.mlkit:translate:17.0.3")
-    implementation("com.google.android.gms:play-services-ads-lite:24.7.0")
+    implementation("com.google.android.gms:play-services-ads-lite:25.0.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
