@@ -146,7 +146,7 @@ private fun TestBannerAd(modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth(),
         factory = {
             AdView(it).apply {
-                setAdSize(AdSize.getLargeAnchoredAdaptiveBannerAdSize(it, 360))
+                setAdSize(AdSize.BANNER)
                 adUnitId = "ca-app-pub-3940256099942544/9214589741"
                 loadAd(AdRequest.Builder().build())
             }
