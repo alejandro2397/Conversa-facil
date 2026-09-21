@@ -14,7 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -28,10 +27,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.AdView
-import com.google.android.gms.ads.MobileAds
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
@@ -74,7 +69,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, null)
-        MobileAds.initialize(this) {}
         setContent {
             ConversaFacilApp(
                 spokenText = speechResult.value,
@@ -136,22 +130,6 @@ class MainActivity : ComponentActivity() {
         tts?.shutdown()
         super.onDestroy()
     }
-}
-
-@Composable
-private fun TestBannerAd(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-
-    AndroidView(
-        modifier = modifier.fillMaxWidth(),
-        factory = {
-            AdView(it).apply {
-                setAdSize(AdSize.BANNER)
-                adUnitId = "ca-app-pub-3940256099942544/9214589741"
-                loadAd(AdRequest.Builder().build())
-            }
-        }
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -367,8 +345,6 @@ private fun ConversaFacilApp(
                             }
                         }
                     }
-
-                    TestBannerAd()
 
                     Text(
                         "15 idiomas disponibles",
