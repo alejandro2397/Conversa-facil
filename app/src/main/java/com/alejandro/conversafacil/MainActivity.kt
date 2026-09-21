@@ -21,10 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -186,8 +183,7 @@ private fun ConversaFacilApp(
     var sourceText by remember { mutableStateOf("") }
     var targetText by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
-    val pulse = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by pulse.animateFloat(1f, 1.08f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "pulseScale")
+    val micScale by animateFloatAsState(if (isListening) 1.08f else 1f, tween(220), label = "micScale")
 
 
     LaunchedEffect(spokenText) {
@@ -294,7 +290,7 @@ private fun ConversaFacilApp(
                             )
 
                             Surface(
-                                modifier = Modifier.size(112.dp),
+                                modifier = Modifier.size(112.dp).scale(micScale),
                                 shape = CircleShape,
                                 color = Color(0xFFE4F0FF),
                                 shadowElevation = 2.dp
