@@ -7,6 +7,10 @@ import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -417,6 +421,8 @@ private fun ConversaFacilApp(
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color(0xFF71839B)
                     )
+
+                    AdMobBanner()
                 }
             }
         }
@@ -538,4 +544,19 @@ private fun ConversationCard(
             )
         }
     }
+}
+
+
+@Composable
+private fun AdMobBanner() {
+    AndroidView(
+        modifier = Modifier.fillMaxWidth().height(50.dp),
+        factory = { context ->
+            AdView(context).apply {
+                setAdSize(AdSize.BANNER)
+                adUnitId = "ca-app-pub-5236094250280846/9454238594"
+                loadAd(AdRequest.Builder().build())
+            }
+        }
+    )
 }
