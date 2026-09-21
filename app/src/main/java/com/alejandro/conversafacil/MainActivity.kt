@@ -8,10 +8,6 @@ import android.os.Bundle
 import android.net.Uri
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.AdView
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -353,7 +349,6 @@ private fun ColumnScope.HomeContent(
             OutlinedButton(onClick = favorite, enabled = sourceText.isNotBlank() && targetText.isNotBlank(), modifier = Modifier.weight(1f)) { Text("⭐ Favorito") }
             OutlinedButton(onClick = clear, modifier = Modifier.weight(1f)) { Text("Limpiar") }
         }
-        AdMobBanner()
     }
 }
 
@@ -541,16 +536,3 @@ private fun ConversationCard(
 }
 
 
-@Composable
-private fun AdMobBanner() {
-    AndroidView(
-        modifier = Modifier.fillMaxWidth().height(50.dp),
-        factory = { context ->
-            AdView(context).apply {
-                setAdSize(AdSize.BANNER)
-                adUnitId = "ca-app-pub-5236094250280846/9454238594"
-                loadAd(AdRequest.Builder().build())
-            }
-        }
-    )
-}
