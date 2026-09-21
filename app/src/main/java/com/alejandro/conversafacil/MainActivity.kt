@@ -64,6 +64,9 @@ class MainActivity : ComponentActivity() {
     private var tts: TextToSpeech? = null
     private var lastSource = "es"
     private var lastTarget = "zh"
+    private var cachedTranslator: com.google.mlkit.nl.translate.Translator? = null
+    private var cachedPair: String? = null
+    private var cachedReady = false
 
     private val speechLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { text ->
@@ -75,6 +78,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, null)
+        prepareTranslator("es", "zh")
         setContent {
             ConversaFacilApp(
                 spokenText = speechResult.value,
@@ -98,40 +102,83 @@ class MainActivity : ComponentActivity() {
         })
     }
 
-    private fun translate(text: String, source: String, target: String) {
-        translationError.value = ""
-        if (text.isBlank() || source == target) {
-            translationResult.value = if (source == target) text else ""
+    private fun prepareTranslator(source: String, target: String, onReady: (() -> Unit)? = null) {
+        if (source == target) {
+            cachedReady = true
+            onReady?.invoke()
             return
         }
-        translationLoading.value = true
+        val pair = "$source-$target"
+        if (cachedPair == pair && cachedTranslator != null && cachedReady) {
+            onReady?.invoke()
+            return
+        }
+
+        cachedTranslator?.close()
+        cachedTranslator = null
+        cachedReady = false
+        cachedPair = pair
+
         val translator = Translation.getClient(
             TranslatorOptions.Builder()
                 .setSourceLanguage(source)
                 .setTargetLanguage(target)
                 .build()
         )
+        cachedTranslator = translator
+
         translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
             .addOnSuccessListener {
-                translator.translate(text)
-                    .addOnSuccessListener { result ->
-                        translationResult.value = result
-                        translationLoading.value = false
-                        translator.close()
-                    }
-                    .addOnFailureListener {
-                        translationResult.value = ""
-                        translationError.value = "No se pudo traducir. Inténtalo de nuevo."
-                        translationLoading.value = false
-                        translator.close()
-                    }
+                if (cachedPair == pair) {
+                    cachedReady = true
+                    onReady?.invoke()
+                }
             }
             .addOnFailureListener {
-                translationResult.value = ""
-                translationError.value = "No se pudo preparar el idioma. Revisa tu conexión."
-                translationLoading.value = false
-                translator.close()
+                if (cachedPair == pair) {
+                    cachedReady = false
+                    translationError.value = "Necesito preparar este idioma. Activa Internet una vez y vuelve a intentar."
+                    translationLoading.value = false
+                }
             }
+    }
+
+    private fun translate(text: String, source: String, target: String) {
+        translationError.value = ""
+        if (text.isBlank()) {
+            translationResult.value = ""
+            translationLoading.value = false
+            return
+        }
+        if (source == target) {
+            translationResult.value = text
+            translationLoading.value = false
+            return
+        }
+
+        translationLoading.value = true
+        val pair = "$source-$target"
+
+        fun runTranslation() {
+            val translator = cachedTranslator
+            if (cachedPair != pair || translator == null || !cachedReady) {
+                prepareTranslator(source, target) { runTranslation() }
+                return
+            }
+
+            translator.translate(text)
+                .addOnSuccessListener { result ->
+                    translationResult.value = result
+                    translationLoading.value = false
+                }
+                .addOnFailureListener {
+                    translationResult.value = ""
+                    translationError.value = "No se pudo traducir. Inténtalo de nuevo."
+                    translationLoading.value = false
+                }
+        }
+
+        runTranslation()
     }
 
     private fun speak(text: String, language: AppLanguage) {
@@ -143,6 +190,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        cachedTranslator?.close()
+        cachedTranslator = null
         tts?.shutdown()
         super.onDestroy()
     }
