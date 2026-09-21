@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+      - redesign-1.1
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
@@ -33,12 +37,10 @@ jobs:
           KEY_PWD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           set -Eeuo pipefail
-
           [ -n "$KEYSTORE_B64" ] || { echo "❌ Falta RELEASE_KEYSTORE_BASE64"; exit 1; }
           [ -n "$STORE_PWD" ] || { echo "❌ Falta RELEASE_STORE_PASSWORD"; exit 1; }
           [ -n "$KEY_ALIAS" ] || { echo "❌ Falta RELEASE_KEY_ALIAS"; exit 1; }
           [ -n "$KEY_PWD" ] || { echo "❌ Falta RELEASE_KEY_PASSWORD"; exit 1; }
-
           echo "✅ Los 4 Secrets están disponibles."
 
       - name: Decode keystore
@@ -46,22 +48,10 @@ jobs:
           KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
           set -Eeuo pipefail
-
-          echo "Decodificando keystore..."
-
-          printf '%s' "$KEYSTORE_B64" |
-            tr -d '[:space:]' |
-            base64 --decode > release-key.p12
-
+          printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 --decode > release-key.p12
           SIZE=$(stat -c%s release-key.p12)
           echo "Keystore decodificado: ${SIZE} bytes"
-
-          if [ "$SIZE" -eq 0 ]; then
-            echo "❌ Keystore vacío."
-            exit 1
-          fi
-
-          echo "✅ Keystore decodificado."
+          [ "$SIZE" -gt 0 ] || { echo "❌ Keystore vacío."; exit 1; }
 
       - name: Validate PKCS12 keystore
         env:
@@ -69,18 +59,8 @@ jobs:
           KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         run: |
           set -Eeuo pipefail
-
-          keytool -list \
-            -storetype PKCS12 \
-            -keystore release-key.p12 \
-            -storepass "$STORE_PWD"
-
-          keytool -list \
-            -storetype PKCS12 \
-            -keystore release-key.p12 \
-            -storepass "$STORE_PWD" \
-            -alias "$KEY_ALIAS"
-
+          keytool -list -storetype PKCS12 -keystore release-key.p12 -storepass "$STORE_PWD"
+          keytool -list -storetype PKCS12 -keystore release-key.p12 -storepass "$STORE_PWD" -alias "$KEY_ALIAS"
           echo "✅ Keystore PKCS12 y alias válidos."
 
       - name: Build release APK and AAB
@@ -91,12 +71,7 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           set -Eeuo pipefail
-
-          echo "🔨 Compilando APK..."
-
           gradle assembleRelease bundleRelease --stacktrace
-
-          echo "✅ APK compilado."
 
       - name: Upload signed APK and AAB
         if: success()
@@ -111,7 +86,5 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          rm -f release-key.p12
-          rm -f release-key.jks
+          rm -f release-key.p12 release-key.jks
           echo "✅ Limpieza completada."
-        
