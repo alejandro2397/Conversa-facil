@@ -48,5 +48,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("com.google.mlkit:translate:17.0.3")
     implementation("com.google.android.gms:play-services-ads-lite:25.0.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
