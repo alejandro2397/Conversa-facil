@@ -6,6 +6,9 @@ on:
     branches:
       - main
       - redesign-1.1
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
