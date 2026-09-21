@@ -38,6 +38,7 @@ import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 data class AppLanguage(val name: String, val flag: String, val code: String, val speechLocale: String)
 
@@ -65,6 +66,7 @@ class MainActivity : ComponentActivity() {
     private var tts: TextToSpeech? = null
     private var lastSource = "es"
     private var lastTarget = "zh"
+    private val translators = ConcurrentHashMap<String, com.google.mlkit.nl.translate.Translator>()
 
     private val speechLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -78,6 +80,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, null)
+        prepareTranslator("es", "zh")
 
         setContent {
             ConversaFacilApp(
@@ -100,35 +103,30 @@ class MainActivity : ComponentActivity() {
         })
     }
 
+    private fun getTranslator(source: String, target: String): com.google.mlkit.nl.translate.Translator {
+        val key = "$source-$target"
+        return translators.getOrPut(key) {
+            Translation.getClient(TranslatorOptions.Builder().setSourceLanguage(source).setTargetLanguage(target).build())
+        }
+    }
+
+    private fun prepareTranslator(source: String, target: String) {
+        if (source == target) return
+        getTranslator(source, target).downloadModelIfNeeded(DownloadConditions.Builder().build())
+    }
+
     private fun translate(text: String, source: String, target: String) {
         if (text.isBlank() || source == target) {
             translationResult.value = if (source == target) text else ""
             return
         }
-
-        val translator = Translation.getClient(
-            TranslatorOptions.Builder()
-                .setSourceLanguage(source)
-                .setTargetLanguage(target)
-                .build()
-        )
-
+        val translator = getTranslator(source, target)
         translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
-            .addOnSuccessListener {
-                translator.translate(text)
-                    .addOnSuccessListener {
-                        translationResult.value = it
-                        translator.close()
-                    }
-                    .addOnFailureListener {
-                        translationResult.value = "No se pudo traducir. Inténtalo de nuevo."
-                        translator.close()
-                    }
+            .addOnSuccessListener { translator.translate(text)
+                .addOnSuccessListener { translated -> translationResult.value = translated }
+                .addOnFailureListener { translationResult.value = "No se pudo traducir. Inténtalo de nuevo." }
             }
-            .addOnFailureListener {
-                translationResult.value = "No se pudo descargar el idioma. Revisa tu conexión."
-                translator.close()
-            }
+            .addOnFailureListener { translationResult.value = "Preparando el idioma… inténtalo de nuevo en un momento." }
     }
 
     private fun speak(text: String, language: AppLanguage) {
@@ -146,6 +144,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        translators.values.forEach { it.close() }
+        translators.clear()
         tts?.shutdown()
         super.onDestroy()
     }
