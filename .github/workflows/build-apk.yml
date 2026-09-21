@@ -1,4 +1,4 @@
-name: Build APK
+name: Build APK and AAB
 
 on:
   workflow_dispatch:
@@ -83,7 +83,7 @@ jobs:
 
           echo "✅ Keystore PKCS12 y alias válidos."
 
-      - name: Build release APK
+      - name: Build release APK and AAB
         env:
           RELEASE_STORE_FILE: ${{ github.workspace }}/release-key.p12
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
@@ -94,16 +94,18 @@ jobs:
 
           echo "🔨 Compilando APK..."
 
-          gradle assembleRelease --stacktrace
+          gradle assembleRelease bundleRelease --stacktrace
 
           echo "✅ APK compilado."
 
-      - name: Upload signed APK
+      - name: Upload signed APK and AAB
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: conversa-facil-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          name: conversa-facil-release
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
           retention-days: 30
 
       - name: Cleanup
