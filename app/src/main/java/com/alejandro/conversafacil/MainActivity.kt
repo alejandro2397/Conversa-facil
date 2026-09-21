@@ -20,6 +20,13 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -179,9 +186,14 @@ private fun ConversaFacilApp(
     var target by remember { mutableStateOf(languages[2]) }
     var sourceText by remember { mutableStateOf("") }
     var targetText by remember { mutableStateOf("") }
+    var isListening by remember { mutableStateOf(false) }
+    val micScale by animateFloatAsState(if (isListening) 1.08f else 1f, tween(220), label = "micScale")
+    val pulse = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by pulse.animateFloat(1f, 1.08f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "pulseScale")
 
 
     LaunchedEffect(spokenText) {
+        if (spokenText.isNotBlank()) isListening = false
         if (spokenText.isNotBlank()) sourceText = spokenText
     }
     LaunchedEffect(translatedText) {
@@ -289,7 +301,7 @@ private fun ConversaFacilApp(
                                 color = Color(0xFFE4F0FF),
                                 shadowElevation = 2.dp
                             ) {
-                                IconButton(onClick = { startListening(source, target) }) {
+                                IconButton(onClick = { isListening = true; startListening(source, target) }) {
                                     Surface(
                                         modifier = Modifier.size(78.dp),
                                         shape = CircleShape,
@@ -303,7 +315,7 @@ private fun ConversaFacilApp(
                                 }
                             }
 
-                            Text("Toca para hablar", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF173B70))
+                            AnimatedVisibility(visible = isListening) {\n                                Text("🎙️ Escuchando...", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1685F5))\n                            }\n                            if (!isListening) Text("Toca para hablar", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF173B70))
                         }
                     }
 
@@ -318,7 +330,7 @@ private fun ConversaFacilApp(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text("✨  Traducción", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = Color(0xFF079C73))
-                            Text(targetText.ifEmpty { "Aquí aparecerá la traducción..." }, style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))
+                            AnimatedVisibility(visible = targetText.isNotBlank()) {\n                                Text(targetText, style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))\n                            }\n                            if (targetText.isBlank()) Text("Aquí aparecerá la traducción...", style = MaterialTheme.typography.headlineSmall, color = Color(0xFF45617F))
 
                             Row(
                                 Modifier.fillMaxWidth(),
