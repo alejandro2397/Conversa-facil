@@ -59,6 +59,8 @@ private val languages = listOf(
 class MainActivity : ComponentActivity() {
     private val speechResult = mutableStateOf("")
     private val translationResult = mutableStateOf("")
+    private val translationLoading = mutableStateOf(false)
+    private val translationError = mutableStateOf("")
     private var tts: TextToSpeech? = null
     private var lastSource = "es"
     private var lastTarget = "zh"
@@ -77,6 +79,8 @@ class MainActivity : ComponentActivity() {
             ConversaFacilApp(
                 spokenText = speechResult.value,
                 translatedText = translationResult.value,
+                isTranslating = translationLoading.value,
+                translationError = translationError.value,
                 startListening = ::startListening,
                 speak = ::speak,
                 translateText = ::translate
@@ -95,10 +99,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun translate(text: String, source: String, target: String) {
+        translationError.value = ""
         if (text.isBlank() || source == target) {
             translationResult.value = if (source == target) text else ""
             return
         }
+        translationLoading.value = true
         val translator = Translation.getClient(
             TranslatorOptions.Builder()
                 .setSourceLanguage(source)
@@ -110,15 +116,20 @@ class MainActivity : ComponentActivity() {
                 translator.translate(text)
                     .addOnSuccessListener { result ->
                         translationResult.value = result
+                        translationLoading.value = false
                         translator.close()
                     }
                     .addOnFailureListener {
-                        translationResult.value = "No se pudo traducir. Inténtalo de nuevo."
+                        translationResult.value = ""
+                        translationError.value = "No se pudo traducir. Inténtalo de nuevo."
+                        translationLoading.value = false
                         translator.close()
                     }
             }
             .addOnFailureListener {
-                translationResult.value = "No se pudo descargar el idioma. Revisa tu conexión."
+                translationResult.value = ""
+                translationError.value = "No se pudo preparar el idioma. Revisa tu conexión."
+                translationLoading.value = false
                 translator.close()
             }
     }
@@ -177,6 +188,8 @@ private fun LanguageSelector(
 private fun ConversaFacilApp(
     spokenText: String,
     translatedText: String,
+    isTranslating: Boolean,
+    translationError: String,
     startListening: (AppLanguage, AppLanguage) -> Unit,
     speak: (String, AppLanguage) -> Unit,
     translateText: (String, String, String) -> Unit
@@ -326,11 +339,17 @@ private fun ConversaFacilApp(
                                 }
                                 Text("✨", style = MaterialTheme.typography.headlineMedium)
                             }
-                            Text(
+                            if (isTranslating) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp)
+                                    Text("Traduciendo…", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF087F61))
+                                }
+                            } else Text(
                                 if (targetText.isBlank()) "Tu traducción aparecerá aquí" else targetText,
                                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = if (targetText.isBlank()) FontWeight.Normal else FontWeight.Bold),
                                 color = if (targetText.isBlank()) Color(0xFF78968E) else Color(0xFF204E45)
                             )
+                            if (translationError.isNotBlank()) Text(translationError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Button(
                                     onClick = { speak(targetText, target) },
