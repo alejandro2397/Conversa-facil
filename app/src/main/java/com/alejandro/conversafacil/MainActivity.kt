@@ -274,7 +274,7 @@ private fun ConversaFacilApp(
                 Box(
                     Modifier.fillMaxWidth().background(
                         Brush.linearGradient(listOf(Color(0xFF315BEA), Color(0xFF7A42E8)))
-                    ).padding(20.dp)
+                    ).padding(start = 20.dp, end = 20.dp, top = 34.dp, bottom = 20.dp)
                 ) {
                     Row(
                         Modifier.fillMaxWidth(),
@@ -285,7 +285,7 @@ private fun ConversaFacilApp(
                             Text("Conversa Fácil", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold), color = Color.White)
                             Text("Habla. Traduce. Conecta.", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.88f))
                         }
-                        Surface(shape = RoundedCornerShape(18.dp), color = Color.White.copy(alpha = 0.16f)) {
+                        Surface(shape = RoundedCornerShape(18.dp), color = Color.White.copy(alpha = 0.26f)) {
                             Text("● EN LÍNEA", modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White)
                         }
                     }
@@ -337,8 +337,8 @@ private fun ConversaFacilApp(
                                 placeholder = { Text("Escribe aquí o usa el micrófono…") },
                                 shape = RoundedCornerShape(20.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF315BEA),
-                                    unfocusedBorderColor = Color(0xFFDCE3EF)
+                                    focusedBorderColor = Color(0xFF7A42E8),
+                                    unfocusedBorderColor = Color(0xFFE1E3E8)
                                 )
                             )
 
@@ -350,9 +350,9 @@ private fun ConversaFacilApp(
                                 ) {
                                     Text("Traducir", fontWeight = FontWeight.Bold)
                                 }
-                                Surface(Modifier.size(52.dp).scale(micScale), CircleShape, color = Color(0xFFE8F0FF)) {
+                                Surface(Modifier.size(52.dp).scale(micScale), CircleShape, color = Color(0xFFF0E8FF)) {
                                     IconButton(onClick = { isListening = true; startListening(source, target) }) {
-                                        Icon(Icons.Default.Mic, "Hablar", tint = Color(0xFF315BEA), modifier = Modifier.size(27.dp))
+                                        Icon(Icons.Default.Mic, "Hablar", tint = Color(0xFF7A42E8), modifier = Modifier.size(27.dp))
                                     }
                                 }
                             }
@@ -364,11 +364,15 @@ private fun ConversaFacilApp(
                             Text("Frases rápidas", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = Color(0xFF70809A))
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOf("Hola", "¿Cuánto cuesta?", "Gracias", "¿Dónde está?").forEach { phrase ->
-                                    AssistChip(
-                                        onClick = { sourceText = phrase; translateText(phrase, source.code, target.code) },
-                                        label = { Text(phrase) },
-                                        shape = RoundedCornerShape(14.dp)
-                                    )
+                                    Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFFF0F2F5)) {
+                                        AssistChip(
+                                            onClick = { sourceText = phrase; translateText(phrase, source.code, target.code) },
+                                            label = { Text(phrase, color = Color(0xFF1F2937)) },
+                                            shape = RoundedCornerShape(14.dp),
+                                            border = null,
+                                            colors = AssistChipDefaults.assistChipColors(containerColor = Color.Transparent, labelColor = Color(0xFF1F2937))
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -377,16 +381,16 @@ private fun ConversaFacilApp(
                     Card(
                         Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(28.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFEAFBF5)),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
                         elevation = CardDefaults.cardElevation(4.dp)
                     ) {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column {
-                                    Text("Traducción", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold), color = Color(0xFF087F61))
+                                    Text("Traducción", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold), color = Color(0xFF00A86B))
                                     Text(target.flag + " " + target.name, style = MaterialTheme.typography.labelLarge, color = Color(0xFF4D7D70))
                                 }
-                                Text("✨", style = MaterialTheme.typography.headlineMedium)
+                                Text("✨", style = MaterialTheme.typography.headlineMedium, color = Color(0xFF00A86B))
                             }
                             if (isTranslating) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -405,7 +409,7 @@ private fun ConversaFacilApp(
                                     modifier = Modifier.weight(1f).height(50.dp),
                                     enabled = targetText.isNotBlank(),
                                     shape = RoundedCornerShape(16.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7A42E8))
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7A42E8), disabledContentColor = Color(0xFF777B85))
                                 ) {
                                     Icon(Icons.Default.VolumeUp, null)
                                     Spacer(Modifier.width(7.dp))
@@ -425,7 +429,7 @@ private fun ConversaFacilApp(
                         Modifier.fillMaxWidth().padding(bottom = 8.dp),
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = Color(0xFF718198)
+                        color = Color(0xFF667085)
                     )
                 }
             }
