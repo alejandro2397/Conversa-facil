@@ -1,6 +1,7 @@
 package com.alejandro.conversafacil
 
 import android.content.Intent
+import android.content.Context
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.animation.AnimatedVisibility
@@ -271,6 +273,7 @@ private fun ConversaFacilApp(
     var sourceText by remember { mutableStateOf("") }
     var targetText by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     val micScale by animateFloatAsState(if (isListening) 1.08f else 1f, tween(220), label = "micScale")
 
 
@@ -290,6 +293,8 @@ private fun ConversaFacilApp(
         sourceText = targetText
         targetText = oldText
     }
+
+    fun shareApp() { val i = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "Estoy usando Conversa Fácil para traducir y comunicarme en otros idiomas. Pruébala gratis!") }; context.startActivity(Intent.createChooser(i, "Compartir Conversa Fácil")) }
 
     MaterialTheme {
         Surface(Modifier.fillMaxSize(), color = Color(0xFFF7F9FC)) {
@@ -480,7 +485,9 @@ private fun ConversaFacilApp(
                         }
                     }
 
-                    BannerAd(modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp))
+                    OutlinedButton(onClick = { shareApp() }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), shape = RoundedCornerShape(16.dp)) { Icon(Icons.Default.Share, contentDescription = "Compartir"); Spacer(Modifier.width(8.dp)); Text("Compartir Conversa Fácil", fontWeight = FontWeight.Bold) }
+
+                BannerAd(modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp))
 
                     Text(
                         "🌎  15 idiomas • Traducción en el dispositivo",
