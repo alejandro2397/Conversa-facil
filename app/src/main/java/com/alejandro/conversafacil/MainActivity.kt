@@ -2,6 +2,8 @@ package com.alejandro.conversafacil
 
 import android.content.Intent
 import android.content.Context
+import androidx.core.content.FileProvider
+import java.io.File
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
@@ -294,7 +296,17 @@ private fun ConversaFacilApp(
         targetText = oldText
     }
 
-    fun shareApp() { val i = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "Estoy usando Conversa Fácil para traducir y comunicarme en otros idiomas. Pruébala gratis!") }; context.startActivity(Intent.createChooser(i, "Compartir Conversa Fácil")) }
+    fun shareApp() {
+        val apkFile = File(context.applicationInfo.sourceDir)
+        val apkUri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", apkFile)
+        val i = Intent(Intent.ACTION_SEND).apply {
+            type = "application/vnd.android.package-archive"
+            putExtra(Intent.EXTRA_STREAM, apkUri)
+            putExtra(Intent.EXTRA_TEXT, "Te comparto Conversa Fácil. Puedes instalarla y traducir entre varios idiomas.")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(i, "Compartir Conversa Fácil"))
+    }
 
     MaterialTheme {
         Surface(Modifier.fillMaxSize(), color = Color(0xFFF7F9FC)) {
