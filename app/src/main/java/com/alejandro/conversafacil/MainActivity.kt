@@ -37,6 +37,7 @@ import com.google.mlkit.nl.translate.TranslatorOptions
 import java.util.Locale
 
 data class AppLanguage(val name: String, val flag: String, val code: String, val speechLocale: String)
+data class TranslationEntry(val source: String, val translated: String, val sourceCode: String, val targetCode: String)
 
 private val languages = listOf(
     AppLanguage("Español", "🇪🇸", "es", "es-ES"),
@@ -67,10 +68,13 @@ class MainActivity : ComponentActivity() {
     private var cachedTranslator: com.google.mlkit.nl.translate.Translator? = null
     private var cachedPair: String? = null
     private var cachedReady = false
+    private val history = mutableStateListOf<TranslationEntry>()
+    private var autoSpeakAfterTranslation = false
 
     private val speechLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { text ->
             speechResult.value = text
+            autoSpeakAfterTranslation = true
             translate(text, lastSource, lastTarget)
         }
     }
@@ -88,7 +92,9 @@ class MainActivity : ComponentActivity() {
                 startListening = ::startListening,
                 speak = ::speak,
                 translateText = ::translate,
-                prepareLanguages = ::prepareTranslator
+                prepareLanguages = ::prepareTranslator,
+                history = history,
+                clearHistory = { history.clear() }
             )
         }
     }
@@ -170,6 +176,12 @@ class MainActivity : ComponentActivity() {
             translator.translate(text)
                 .addOnSuccessListener { result ->
                     translationResult.value = result
+                    history.add(TranslationEntry(text, result, source, target))
+                    if (history.size > 20) history.removeAt(0)
+                    if (autoSpeakAfterTranslation) {
+                        autoSpeakAfterTranslation = false
+                        languages.firstOrNull { it.code == target }?.let { speak(result, it) }
+                    }
                     translationLoading.value = false
                 }
                 .addOnFailureListener {
@@ -243,7 +255,9 @@ private fun ConversaFacilApp(
     startListening: (AppLanguage, AppLanguage) -> Unit,
     speak: (String, AppLanguage) -> Unit,
     translateText: (String, String, String) -> Unit,
-    prepareLanguages: (String, String, (() -> Unit)?) -> Unit
+    prepareLanguages: (String, String, (() -> Unit)?) -> Unit,
+    history: List<TranslationEntry>,
+    clearHistory: () -> Unit
 ) {
     var source by remember { mutableStateOf(languages[0]) }
     var target by remember { mutableStateOf(languages[2]) }
@@ -380,6 +394,32 @@ private fun ConversaFacilApp(
                         }
                     }
 
+                    if (history.isNotEmpty()) {
+                        Card(
+                            Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(3.dp)
+                        ) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Column {
+                                        Text("Conversación", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold), color = Color(0xFF173B70))
+                                        Text(history.size.toString() + if (history.size == 1) " mensaje" else " mensajes", style = MaterialTheme.typography.labelMedium, color = Color(0xFF667085))
+                                    }
+                                    TextButton(onClick = clearHistory) { Text("Borrar") }
+                                }
+                                history.asReversed().take(8).forEach { item ->
+                                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color(0xFFF3F5F8)) {
+                                        Column(Modifier.padding(12.dp)) {
+                                            Text(item.source, fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937))
+                                            Text(item.translated, fontWeight = FontWeight.Bold, color = Color(0xFF204E45))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Card(
                         Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(28.dp),
