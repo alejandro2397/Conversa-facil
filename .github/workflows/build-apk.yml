@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -114,4 +117,37 @@ jobs:
           rm -f release-key.p12
           rm -f release-key.jks
           echo "✅ Limpieza completada."
-        
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: success() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download signed artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: conversa-facil-release
+          path: release-files
+
+      - name: Publish v1.0.1-beta
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.1-beta
+          name: Conversa Fácil v1.0.1 Beta
+          body: |
+            ## Conversa Fácil v1.0.1 Beta 💬
+
+            Nueva versión con:
+            - 🎨 Nuevo icono moderno morado y azul.
+            - 🌎 Selector de idioma de destino en la tarjeta de traducción.
+            - ⚡ Mejor preparación y reutilización de los modelos de traducción.
+            - ✨ Mejoras visuales de la interfaz.
+
+            Esta es una versión Beta.
+          prerelease: true
+          files: |
+            release-files/**/*.apk
+            release-files/**/*.aab
+
