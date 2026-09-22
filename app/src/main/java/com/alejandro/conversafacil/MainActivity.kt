@@ -87,7 +87,8 @@ class MainActivity : ComponentActivity() {
                 translationError = translationError.value,
                 startListening = ::startListening,
                 speak = ::speak,
-                translateText = ::translate
+                translateText = ::translate,
+                prepareLanguages = ::prepareTranslator
             )
         }
     }
@@ -241,7 +242,8 @@ private fun ConversaFacilApp(
     translationError: String,
     startListening: (AppLanguage, AppLanguage) -> Unit,
     speak: (String, AppLanguage) -> Unit,
-    translateText: (String, String, String) -> Unit
+    translateText: (String, String, String) -> Unit,
+    prepareLanguages: (String, String, (() -> Unit)?) -> Unit
 ) {
     var source by remember { mutableStateOf(languages[0]) }
     var target by remember { mutableStateOf(languages[2]) }
@@ -386,10 +388,18 @@ private fun ConversaFacilApp(
                     ) {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                                Column {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text("Traducción", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold), color = Color(0xFF00A86B))
-                                    Text(target.flag + " " + target.name, style = MaterialTheme.typography.labelLarge, color = Color(0xFF4D7D70))
+                                    LanguageSelector("Idioma", target) {
+                                        if (it.code != source.code) {
+                                            target = it
+                                            targetText = ""
+                                            translationError = ""
+                                            prepareLanguages(source.code, it.code, null)
+                                        }
+                                    }
                                 }
+                                Spacer(Modifier.width(12.dp))
                                 Text("✨", style = MaterialTheme.typography.headlineMedium, color = Color(0xFF00A86B))
                             }
                             if (isTranslating) {
