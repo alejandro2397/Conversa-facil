@@ -297,15 +297,36 @@ private fun ConversaFacilApp(
     }
 
     fun shareApp() {
-        val apkFile = File(context.applicationInfo.sourceDir)
-        val apkUri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", apkFile)
-        val i = Intent(Intent.ACTION_SEND).apply {
-            type = "application/vnd.android.package-archive"
-            putExtra(Intent.EXTRA_STREAM, apkUri)
-            putExtra(Intent.EXTRA_TEXT, "Te comparto Conversa Fácil. Puedes instalarla y traducir entre varios idiomas.")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try {
+            // FileProvider cannot expose the installed APK directly from /data/app.
+            // Copy it to our app cache, which is explicitly allowed by file_paths.xml.
+            val sourceApk = File(context.applicationInfo.sourceDir)
+            val sharedApk = File(context.cacheDir, "Conversa-Facil.apk")
+            sourceApk.inputStream().use { input ->
+                sharedApk.outputStream().use { output -> input.copyTo(output) }
+            }
+
+            val apkUri = FileProvider.getUriForFile(
+                context,
+                context.packageName + ".fileprovider",
+                sharedApk
+            )
+
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/vnd.android.package-archive"
+                putExtra(Intent.EXTRA_STREAM, apkUri)
+                putExtra(Intent.EXTRA_TEXT, "Te comparto Conversa Fácil. Puedes instalarla y traducir entre varios idiomas.")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            context.startActivity(Intent.createChooser(intent, "Compartir Conversa Fácil"))
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(
+                context,
+                "No se pudo preparar la app para compartir.",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
         }
-        context.startActivity(Intent.createChooser(i, "Compartir Conversa Fácil"))
     }
 
     MaterialTheme {
