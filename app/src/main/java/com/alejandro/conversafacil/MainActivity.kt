@@ -394,7 +394,6 @@ private fun ConversaFacilApp(
                                         if (it.code != source.code) {
                                             target = it
                                             targetText = ""
-                                            translationError = ""
                                             prepareLanguages(source.code, it.code, null)
                                         }
                                     }
