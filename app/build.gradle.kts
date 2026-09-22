@@ -47,5 +47,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("com.google.mlkit:translate:17.0.3")
+    // Google Mobile Ads SDK: kept on a Kotlin 2.0-compatible release to avoid the previous metadata issue.
+    implementation("com.google.android.gms:play-services-ads:23.6.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
