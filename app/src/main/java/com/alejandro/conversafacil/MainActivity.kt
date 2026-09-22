@@ -88,6 +88,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, null)
+        Thread { MobileAds.initialize(this) {} }.start()
         prepareTranslator("es", "zh")
         setContent {
             ConversaFacilApp(
