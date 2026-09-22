@@ -78,6 +78,7 @@ class MainActivity : ComponentActivity() {
     private var lastTarget = "zh"
     private val translatorCache = LinkedHashMap<String, com.google.mlkit.nl.translate.Translator>(4, 0.75f, true)
     private val preparingPairs = mutableSetOf<String>()
+    private val preparingCallbacks = mutableMapOf<String, MutableList<() -> Unit>>()
     private var cachedTranslator: com.google.mlkit.nl.translate.Translator? = null
     private var cachedPair: String? = null
     private var cachedReady = false
@@ -139,8 +140,12 @@ class MainActivity : ComponentActivity() {
             onReady?.invoke()
             return
         }
-        if (preparingPairs.contains(pair)) return
+        if (preparingPairs.contains(pair)) {
+            onReady?.let { preparingCallbacks.getOrPut(pair) { mutableListOf() }.add(it) }
+            return
+        }
         preparingPairs.add(pair)
+        preparingCallbacks[pair] = mutableListOf<() -> Unit>().apply { onReady?.let { add(it) } }
         cachedTranslator = null
         cachedPair = pair
         cachedReady = false
@@ -162,7 +167,7 @@ class MainActivity : ComponentActivity() {
                             translatorCache.remove(eldest.key)
                         } else break
                     }
-                    onReady?.invoke()
+                    preparingCallbacks.remove(pair)?.forEach { it.invoke() }
                 }
             }
             .addOnFailureListener {
@@ -173,6 +178,7 @@ class MainActivity : ComponentActivity() {
                     cachedTranslator = null
                     cachedReady = false
                     translationError.value = "No se pudo preparar este idioma. Conéctate a Internet e inténtalo de nuevo."
+                    preparingCallbacks.remove(pair)
                     translationLoading.value = false
                 }
             }
