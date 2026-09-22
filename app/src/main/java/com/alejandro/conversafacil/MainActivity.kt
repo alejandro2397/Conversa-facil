@@ -4,6 +4,10 @@ import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.MobileAds
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,6 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.Translation
@@ -473,6 +479,8 @@ private fun ConversaFacilApp(
                         }
                     }
 
+                    BannerAd(modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp))
+
                     Text(
                         "🌎  15 idiomas • Traducción en el dispositivo",
                         Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -484,4 +492,21 @@ private fun ConversaFacilApp(
             }
         }
     }
+}
+
+
+@Composable
+private fun BannerAd(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val adView = remember {
+        AdView(context).apply {
+            adUnitId = "ca-app-pub-3940256099942544/9214589741"
+            setAdSize(AdSize.BANNER)
+        }
+    }
+    DisposableEffect(adView) {
+        adView.loadAd(AdRequest.Builder().build())
+        onDispose { adView.destroy() }
+    }
+    AndroidView(modifier = modifier.height(50.dp), factory = { adView })
 }
