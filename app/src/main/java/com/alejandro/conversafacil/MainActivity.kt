@@ -501,7 +501,7 @@ private fun BannerAd(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val adView = remember {
         AdView(context).apply {
-            adUnitId = "ca-app-pub-3940256099942544/9214589741"
+            adUnitId = "ca-app-pub-5236094250280846/1170308482"
             setAdSize(AdSize.BANNER)
         }
     }
