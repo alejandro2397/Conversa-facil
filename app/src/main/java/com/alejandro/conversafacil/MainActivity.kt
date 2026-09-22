@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.core.content.FileProvider
 import java.io.File
 import android.os.Bundle
+import kotlinx.coroutines.delay
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import com.google.android.gms.ads.AdRequest
@@ -75,9 +76,13 @@ class MainActivity : ComponentActivity() {
     private var tts: TextToSpeech? = null
     private var lastSource = "es"
     private var lastTarget = "zh"
+    private val translatorCache = LinkedHashMap<String, com.google.mlkit.nl.translate.Translator>(4, 0.75f, true)
+    private val preparingPairs = mutableSetOf<String>()
+    private val preparingCallbacks = mutableMapOf<String, MutableList<() -> Unit>>()
     private var cachedTranslator: com.google.mlkit.nl.translate.Translator? = null
     private var cachedPair: String? = null
     private var cachedReady = false
+    private var translationRequestId = 0L
     private val history = mutableStateListOf<TranslationEntry>()
     private var autoSpeakAfterTranslation = false
 
@@ -85,7 +90,6 @@ class MainActivity : ComponentActivity() {
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { text ->
             speechResult.value = text
             autoSpeakAfterTranslation = true
-            translate(text, lastSource, lastTarget)
         }
     }
 
@@ -122,47 +126,66 @@ class MainActivity : ComponentActivity() {
 
     private fun prepareTranslator(source: String, target: String, onReady: (() -> Unit)? = null) {
         if (source == target) {
+            cachedTranslator = null
+            cachedPair = source + "-" + target
             cachedReady = true
             onReady?.invoke()
             return
         }
-        val pair = "$source-$target"
-        if (cachedPair == pair && cachedTranslator != null && cachedReady) {
+        val pair = source + "-" + target
+        translatorCache[pair]?.let { translator ->
+            cachedTranslator = translator
+            cachedPair = pair
+            cachedReady = true
             onReady?.invoke()
             return
         }
-
-        cachedTranslator?.close()
+        if (preparingPairs.contains(pair)) {
+            onReady?.let { preparingCallbacks.getOrPut(pair) { mutableListOf() }.add(it) }
+            return
+        }
+        preparingPairs.add(pair)
+        preparingCallbacks[pair] = mutableListOf<() -> Unit>().apply { onReady?.let { add(it) } }
         cachedTranslator = null
-        cachedReady = false
         cachedPair = pair
-
+        cachedReady = false
         val translator = Translation.getClient(
-            TranslatorOptions.Builder()
-                .setSourceLanguage(source)
-                .setTargetLanguage(target)
-                .build()
+            TranslatorOptions.Builder().setSourceLanguage(source).setTargetLanguage(target).build()
         )
-        cachedTranslator = translator
-
+        translatorCache[pair] = translator
         translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
             .addOnSuccessListener {
-                if (cachedPair == pair) {
+                preparingPairs.remove(pair)
+                if (translatorCache[pair] === translator) {
+                    cachedTranslator = translator
+                    cachedPair = pair
                     cachedReady = true
-                    onReady?.invoke()
+                    while (translatorCache.size > 4) {
+                        val eldest = translatorCache.entries.iterator().next()
+                        if (eldest.key != pair) {
+                            eldest.value.close()
+                            translatorCache.remove(eldest.key)
+                        } else break
+                    }
+                    preparingCallbacks.remove(pair)?.forEach { it.invoke() }
                 }
             }
             .addOnFailureListener {
-                if (cachedPair == pair) {
+                preparingPairs.remove(pair)
+                if (translatorCache[pair] === translator) {
+                    translatorCache.remove(pair)
+                    translator.close()
+                    cachedTranslator = null
                     cachedReady = false
-                    translationError.value = "Necesito preparar este idioma. Activa Internet una vez y vuelve a intentar."
+                    translationError.value = "No se pudo preparar este idioma. Conéctate a Internet e inténtalo de nuevo."
+                    preparingCallbacks.remove(pair)
                     translationLoading.value = false
                 }
             }
     }
-
     private fun translate(text: String, source: String, target: String) {
         translationError.value = ""
+        val requestId = ++translationRequestId
         if (text.isBlank()) {
             translationResult.value = ""
             translationLoading.value = false
@@ -173,19 +196,19 @@ class MainActivity : ComponentActivity() {
             translationLoading.value = false
             return
         }
-
         translationLoading.value = true
-        val pair = "$source-$target"
-
+        val pair = source + "-" + target
         fun runTranslation() {
-            val translator = cachedTranslator
-            if (cachedPair != pair || translator == null || !cachedReady) {
+            if (requestId != translationRequestId) return
+            val translator = translatorCache[pair]
+            if (translator == null || cachedPair != pair || !cachedReady) {
                 prepareTranslator(source, target) { runTranslation() }
                 return
             }
-
+            translatorCache[pair]
             translator.translate(text)
                 .addOnSuccessListener { result ->
+                    if (requestId != translationRequestId) return@addOnSuccessListener
                     translationResult.value = result
                     history.add(TranslationEntry(text, result, source, target))
                     if (history.size > 20) history.removeAt(0)
@@ -196,15 +219,14 @@ class MainActivity : ComponentActivity() {
                     translationLoading.value = false
                 }
                 .addOnFailureListener {
+                    if (requestId != translationRequestId) return@addOnFailureListener
                     translationResult.value = ""
                     translationError.value = "No se pudo traducir. Inténtalo de nuevo."
                     translationLoading.value = false
                 }
         }
-
         runTranslation()
     }
-
     private fun speak(text: String, language: AppLanguage) {
         if (text.isBlank()) return
         val locale = Locale.forLanguageTag(language.speechLocale)
@@ -214,7 +236,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        cachedTranslator?.close()
+        translatorCache.values.toSet().forEach { it.close() }
+        translatorCache.clear()
         cachedTranslator = null
         tts?.shutdown()
         super.onDestroy()
@@ -285,6 +308,14 @@ private fun ConversaFacilApp(
     }
     LaunchedEffect(translatedText) {
         if (translatedText.isNotBlank()) targetText = translatedText
+    }
+    LaunchedEffect(sourceText, source.code, target.code) {
+        if (sourceText.isBlank()) {
+            targetText = ""
+            return@LaunchedEffect
+        }
+        delay(280)
+        translateText(sourceText, source.code, target.code)
     }
 
     fun swapLanguages() {
