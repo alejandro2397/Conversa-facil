@@ -3,6 +3,8 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <path android:fillColor="#FF6A35E8" android:pathData="M18,0 L90,0 Q108,0 108,18 L108,90 Q108,108 90,108 L18,108 Q0,108 0,90 L0,18 Q0,0 18,0 Z" />
+    <path android:fillColor="#FF1687F5" android:alpha="0.48" android:pathData="M0,72 C22,58 42,58 61,70 C79,81 94,79 108,68 L108,108 L0,108 Z" />
     <!-- Interlocking chat bubbles forming a subtle C -->
     <path
         android:fillColor="#FFFFFFFF"
