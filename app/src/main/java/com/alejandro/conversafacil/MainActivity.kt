@@ -85,6 +85,8 @@ class MainActivity : ComponentActivity() {
     private var translationRequestId = 0L
     private val history = mutableStateListOf<TranslationEntry>()
     private var autoSpeakAfterTranslation = false
+    private var ttsReady = false
+    private var pendingSpeech: Pair<String, AppLanguage>? = null
 
     private val speechLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { text ->
@@ -95,7 +97,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        tts = TextToSpeech(this, null)
+        tts = TextToSpeech(this) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (ttsReady) {
+                pendingSpeech?.let { (text, language) ->
+                    pendingSpeech = null
+                    speak(text, language)
+                }
+            }
+        }
         Thread { MobileAds.initialize(this) {} }.start()
         prepareTranslator("es", "zh")
         setContent {
@@ -229,9 +239,16 @@ class MainActivity : ComponentActivity() {
     }
     private fun speak(text: String, language: AppLanguage) {
         if (text.isBlank()) return
+        if (!ttsReady) {
+            pendingSpeech = text to language
+            return
+        }
         val locale = Locale.forLanguageTag(language.speechLocale)
         val status = tts?.setLanguage(locale)
-        if (status == TextToSpeech.LANG_MISSING_DATA || status == TextToSpeech.LANG_NOT_SUPPORTED) return
+        if (status == TextToSpeech.LANG_MISSING_DATA || status == TextToSpeech.LANG_NOT_SUPPORTED) {
+            translationError.value = "La voz de " + language.name + " no está disponible en este dispositivo."
+            return
+        }
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "conversa_voz")
     }
 
@@ -309,13 +326,10 @@ private fun ConversaFacilApp(
     LaunchedEffect(translatedText) {
         if (translatedText.isNotBlank()) targetText = translatedText
     }
-    LaunchedEffect(sourceText, source.code, target.code) {
-        if (sourceText.isBlank()) {
-            targetText = ""
-            return@LaunchedEffect
+    LaunchedEffect(source.code, target.code) {
+        if (source.code != target.code) {
+            prepareLanguages(source.code, target.code, null)
         }
-        delay(280)
-        translateText(sourceText, source.code, target.code)
     }
 
     fun swapLanguages() {
