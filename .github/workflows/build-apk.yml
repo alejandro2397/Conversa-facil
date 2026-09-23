@@ -99,7 +99,7 @@ jobs:
 
           gradle assembleRelease bundleRelease --stacktrace
 
-          echo "✅ APK compilado."
+          echo "✅ APK compilado."\n\n          APK="app/build/outputs/apk/release/app-release.apk"\n          test -f "$APK" || { echo "❌ No se encontró el APK release esperado."; exit 1; }\n          apksigner verify --verbose --print-certs "$APK"\n          echo "✅ Firma del APK verificada."
 
       - name: Upload signed APK and AAB
         if: success()
@@ -107,8 +107,8 @@ jobs:
         with:
           name: conversa-facil-release
           path: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/bundle/release/*.aab
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
 
       - name: Cleanup
@@ -134,10 +134,10 @@ jobs:
       - name: Publish v1.0.1-beta
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1-beta
-          name: Conversa Fácil v1.0.1 Beta
+          tag_name: v1.0.2-beta
+          name: Conversa Fácil v1.0.2 Beta
           body: |
-            ## Conversa Fácil v1.0.1 Beta 💬
+            ## Conversa Fácil v1.0.2 Beta 💬
 
             Nueva versión con:
             - 🎨 Nuevo icono moderno morado y azul.
