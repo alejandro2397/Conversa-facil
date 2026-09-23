@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <application android:theme="@style/Theme.ConversaFacil" android:label="Conversa Fácil" android:icon="@drawable/ic_launcher_foreground" android:roundIcon="@drawable/ic_launcher_foreground" android:allowBackup="true" android:enableOnBackInvokedCallback="true">\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-5236094250280846~7211218639" />
+    <application android:theme="@style/Theme.ConversaFacil" android:label="Conversa Fácil" android:icon="@drawable/ic_launcher_foreground" android:roundIcon="@drawable/ic_launcher_foreground" android:allowBackup="true" android:enableOnBackInvokedCallback="true">
+        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-5236094250280846~7211218639" />
         <provider android:name="androidx.core.content.FileProvider" android:authorities="com.alejandro.conversafacil.fileprovider" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
