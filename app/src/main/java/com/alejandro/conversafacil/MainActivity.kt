@@ -92,6 +92,7 @@ class MainActivity : ComponentActivity() {
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { text ->
             speechResult.value = text
             autoSpeakAfterTranslation = true
+            translate(text, lastSource, lastTarget)
         }
     }
 
@@ -330,6 +331,17 @@ private fun ConversaFacilApp(
         if (source.code != target.code) {
             prepareLanguages(source.code, target.code, null)
         }
+    }
+
+    // Traducción automática con una espera mínima para no bloquear mientras se escribe.
+    // El modelo ya se prepara al seleccionar los idiomas, así la traducción arranca casi inmediatamente.
+    LaunchedEffect(sourceText, source.code, target.code) {
+        if (sourceText.isBlank()) {
+            targetText = ""
+            return@LaunchedEffect
+        }
+        delay(120)
+        translateText(sourceText, source.code, target.code)
     }
 
     fun swapLanguages() {
