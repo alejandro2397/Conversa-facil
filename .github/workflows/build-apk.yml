@@ -99,7 +99,16 @@ jobs:
 
           gradle assembleRelease bundleRelease --stacktrace
 
-          echo "✅ APK compilado."\n\n          APK="app/build/outputs/apk/release/app-release.apk"\n          test -f "$APK" || { echo "❌ No se encontró el APK release esperado."; exit 1; }\n          apksigner verify --verbose --print-certs "$APK"\n          echo "✅ Firma del APK verificada."
+          echo "✅ APK compilado."
+
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -f "$APK" || { echo "❌ No se encontró el APK release esperado."; exit 1; }
+
+          echo "🔎 Verificando firma del APK..."
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          test -x "$APKSIGNER" || { echo "❌ No se encontró apksigner."; exit 1; }
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          echo "✅ Firma del APK verificada."
 
       - name: Upload signed APK and AAB
         if: success()
@@ -131,7 +140,7 @@ jobs:
           name: conversa-facil-release
           path: release-files
 
-      - name: Publish v1.0.1-beta
+      - name: Publish v1.0.2-beta
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.2-beta
