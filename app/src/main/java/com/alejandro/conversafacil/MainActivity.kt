@@ -108,6 +108,10 @@ class MainActivity : ComponentActivity() {
             }
         }
         Thread { MobileAds.initialize(this) {} }.start()
+        // Pre-descarga los modelos de los 15 idiomas al iniciar la app.
+        // Así, después de la primera preparación, cambiar de idioma no provoca
+        // una descarga inesperada durante la traducción.
+        preloadAllLanguageModels()
         prepareTranslator("es", "zh")
         setContent {
             ConversaFacilApp(
@@ -133,6 +137,20 @@ class MainActivity : ComponentActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, language.speechLocale)
             putExtra(RecognizerIntent.EXTRA_PROMPT, "Habla en ${language.name}")
         })
+    }
+
+    private fun preloadAllLanguageModels() {
+        val conditions = DownloadConditions.Builder().build()
+        languages.filter { it.code != "es" }.forEach { language ->
+            val translator = Translation.getClient(
+                TranslatorOptions.Builder()
+                    .setSourceLanguage("es")
+                    .setTargetLanguage(language.code)
+                    .build()
+            )
+            translator.downloadModelIfNeeded(conditions)
+                .addOnCompleteListener { translator.close() }
+        }
     }
 
     private fun prepareTranslator(source: String, target: String, onReady: (() -> Unit)? = null) {
