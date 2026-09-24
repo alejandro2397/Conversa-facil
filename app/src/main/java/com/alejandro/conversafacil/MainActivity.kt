@@ -7,6 +7,8 @@ import java.io.File
 import android.os.Bundle
 import kotlinx.coroutines.delay
 import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.RecognitionListener
 import android.speech.tts.TextToSpeech
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
@@ -87,6 +89,10 @@ class MainActivity : ComponentActivity() {
     private var autoSpeakAfterTranslation = false
     private var ttsReady = false
     private var pendingSpeech: Pair<String, AppLanguage>? = null
+    private var conversationMode = false
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var conversationSource: AppLanguage? = null
+    private var conversationTarget: AppLanguage? = null
 
     private val speechLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { text ->
@@ -94,6 +100,66 @@ class MainActivity : ComponentActivity() {
             autoSpeakAfterTranslation = true
             translate(text, lastSource, lastTarget)
         }
+    }
+
+    private fun ensureSpeechRecognizer() {
+        if (speechRecognizer != null || !SpeechRecognizer.isRecognitionAvailable(this)) return
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+            setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {}
+                override fun onBeginningOfSpeech() {}
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onEndOfSpeech() {}
+                override fun onPartialResults(partialResults: Bundle?) {}
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+                override fun onError(error: Int) {
+                    if (conversationMode) window.decorView.postDelayed({ listenConversationTurn() }, 350)
+                }
+                override fun onResults(results: Bundle?) {
+                    val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                    if (text.isBlank() || !conversationMode) {
+                        if (conversationMode) listenConversationTurn()
+                        return
+                    }
+                    val source = conversationSource ?: return
+                    val target = conversationTarget ?: return
+                    speechResult.value = text
+                    autoSpeakAfterTranslation = true
+                    translate(text, source.code, target.code)
+                }
+            })
+        }
+    }
+
+    private fun listenConversationTurn() {
+        if (!conversationMode) return
+        val source = conversationSource ?: return
+        ensureSpeechRecognizer()
+        val recognizer = speechRecognizer ?: return
+        recognizer.cancel()
+        recognizer.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, source.speechLocale)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        })
+    }
+
+    private fun startConversationMode(source: AppLanguage, target: AppLanguage, onState: (Boolean) -> Unit) {
+        conversationSource = source
+        conversationTarget = target
+        conversationMode = true
+        onState(true)
+        prepareTranslator(source.code, target.code) {
+            if (conversationMode) listenConversationTurn()
+        }
+    }
+
+    private fun stopConversationMode(onState: (Boolean) -> Unit) {
+        conversationMode = false
+        speechRecognizer?.cancel()
+        onState(false)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -123,7 +189,9 @@ class MainActivity : ComponentActivity() {
                 translateText = ::translate,
                 prepareLanguages = ::prepareTranslator,
                 history = history,
-                clearHistory = { history.clear() }
+                clearHistory = { history.clear() },
+                startConversationMode = ::startConversationMode,
+                stopConversationMode = ::stopConversationMode
             )
         }
     }
@@ -254,12 +322,21 @@ class MainActivity : ComponentActivity() {
             return
         }
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "conversa_voz")
+        if (conversationMode) {
+            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onDone(utteranceId: String?) { window.decorView.postDelayed({ listenConversationTurn() }, 250) }
+                override fun onError(utteranceId: String?) { window.decorView.postDelayed({ listenConversationTurn() }, 250) }
+            })
+        }
     }
 
     override fun onDestroy() {
         translatorCache.values.toSet().forEach { it.close() }
         translatorCache.clear()
         cachedTranslator = null
+        speechRecognizer?.destroy()
+        speechRecognizer = null
         tts?.shutdown()
         super.onDestroy()
     }
@@ -312,7 +389,9 @@ private fun ConversaFacilApp(
     translateText: (String, String, String) -> Unit,
     prepareLanguages: (String, String, (() -> Unit)?) -> Unit,
     history: List<TranslationEntry>,
-    clearHistory: () -> Unit
+    clearHistory: () -> Unit,
+    startConversationMode: (AppLanguage, AppLanguage, (Boolean) -> Unit) -> Unit,
+    stopConversationMode: ((Boolean) -> Unit) -> Unit
 ) {
     var source by remember { mutableStateOf(languages[0]) }
     var target by remember { mutableStateOf(languages[2]) }
@@ -320,6 +399,7 @@ private fun ConversaFacilApp(
     var targetText by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
     var isPreparingLanguage by remember { mutableStateOf(false) }
+    var conversationMode by remember { mutableStateOf(false) }
     var loadingMessageIndex by remember { mutableStateOf(0) }
     val context = LocalContext.current
     val micScale by animateFloatAsState(if (isListening) 1.08f else 1f, tween(220), label = "micScale")
@@ -450,6 +530,30 @@ private fun ConversaFacilApp(
                                     if (it.code != source.code) { target = it; targetText = "" }
                                 }
                             }
+                        }
+                    }
+
+                    Card(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(22.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (conversationMode) Color(0xFFEDE8FF) else Color.White),
+                        elevation = CardDefaults.cardElevation(3.dp)
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Surface(Modifier.size(48.dp), CircleShape, color = if (conversationMode) Color(0xFF7A42E8) else Color(0xFFF0E8FF)) {
+                                Text("🎧", modifier = Modifier.wrapContentSize(Alignment.Center), style = MaterialTheme.typography.titleLarge)
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text("Modo conversación", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold), color = Color(0xFF263B73))
+                                Text(if (conversationMode) "Escuchando y respondiendo en " + target.name + "…" else "Habla con otra persona sin tocar la pantalla", style = MaterialTheme.typography.bodySmall, color = Color(0xFF667085))
+                            }
+                            Switch(
+                                checked = conversationMode,
+                                onCheckedChange = { enabled ->
+                                    if (enabled) startConversationMode(source, target) { conversationMode = it }
+                                    else stopConversationMode { conversationMode = it }
+                                }
+                            )
                         }
                     }
 
