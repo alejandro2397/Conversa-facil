@@ -858,6 +858,13 @@ private fun BannerAd(modifier: Modifier = Modifier) {
         }
     }
     DisposableEffect(adView) {
+        adView.adListener = object : AdListener() {
+            override fun onAdLoaded() { Log.d("AdMobDiag", "BANNER CARGADO correctamente") }
+            override fun onAdFailedToLoad(error: LoadAdError) { Log.e("AdMobDiag", "BANNER NO CARGÓ: code=${error.code}, domain=${error.domain}, message=${error.message}") }
+            override fun onAdOpened() { Log.d("AdMobDiag", "BANNER ABIERTO") }
+            override fun onAdImpression() { Log.d("AdMobDiag", "IMPRESIÓN REGISTRADA") }
+        }
+        Log.d("AdMobDiag", "SOLICITANDO BANNER A ADMOB")
         adView.loadAd(AdRequest.Builder().build())
         onDispose { adView.destroy() }
     }
