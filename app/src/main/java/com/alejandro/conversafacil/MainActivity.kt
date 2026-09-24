@@ -1,5 +1,6 @@
 package com.alejandro.conversafacil
 
+import android.Manifest
 import android.content.Intent
 import android.content.Context
 import androidx.core.content.FileProvider
@@ -94,6 +95,21 @@ class MainActivity : ComponentActivity() {
     private var conversationSource: AppLanguage? = null
     private var conversationTarget: AppLanguage? = null
 
+    private val conversationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val source = conversationSource
+            val target = conversationTarget
+            if (source != null && target != null) {
+                conversationMode = true
+                prepareTranslator(source.code, target.code) {
+                    if (conversationMode) listenConversationTurn()
+                }
+            }
+        }
+    }
+
     private val speechLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { text ->
             speechResult.value = text
@@ -114,7 +130,7 @@ class MainActivity : ComponentActivity() {
                 override fun onPartialResults(partialResults: Bundle?) {}
                 override fun onEvent(eventType: Int, params: Bundle?) {}
                 override fun onError(error: Int) {
-                    if (conversationMode) window.decorView.postDelayed({ listenConversationTurn() }, 350)
+                    if (conversationMode) window.decorView.postDelayed({ listenConversationTurn() }, 700)
                 }
                 override fun onResults(results: Bundle?) {
                     val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
@@ -149,6 +165,11 @@ class MainActivity : ComponentActivity() {
     private fun startConversationMode(source: AppLanguage, target: AppLanguage, onState: (Boolean) -> Unit) {
         conversationSource = source
         conversationTarget = target
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            onState(false)
+            conversationPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
         conversationMode = true
         onState(true)
         prepareTranslator(source.code, target.code) {
@@ -159,6 +180,7 @@ class MainActivity : ComponentActivity() {
     private fun stopConversationMode(onState: (Boolean) -> Unit) {
         conversationMode = false
         speechRecognizer?.cancel()
+        tts?.stop()
         onState(false)
     }
 
