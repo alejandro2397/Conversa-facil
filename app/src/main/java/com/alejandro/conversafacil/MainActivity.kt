@@ -1,4 +1,7 @@
 package com.alejandro.conversafacil
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.AdListener
+import android.util.Log
 
 import android.Manifest
 import android.content.Intent
