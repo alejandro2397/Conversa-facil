@@ -34,6 +34,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.Alignment
@@ -425,6 +428,13 @@ private fun ConversaFacilApp(
     var loadingMessageIndex by remember { mutableStateOf(0) }
     val context = LocalContext.current
     val micScale by animateFloatAsState(if (isListening) 1.08f else 1f, tween(220), label = "micScale")
+    val conversationPulse = rememberInfiniteTransition(label = "conversationPulse")
+    val pulseScale by conversationPulse.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(tween(850, easing = LinearEasing)),
+        label = "pulseScale"
+    )
 
 
     LaunchedEffect(spokenText) {
@@ -557,23 +567,74 @@ private fun ConversaFacilApp(
 
                     Card(
                         Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(22.dp),
-                        colors = CardDefaults.cardColors(containerColor = if (conversationMode) Color(0xFFEDE8FF) else Color.White),
-                        elevation = CardDefaults.cardElevation(3.dp)
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (conversationMode) Color(0xFFF1EDFF) else Color.White
+                        ),
+                        elevation = CardDefaults.cardElevation(if (conversationMode) 7.dp else 3.dp)
                     ) {
-                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Surface(Modifier.size(48.dp), CircleShape, color = if (conversationMode) Color(0xFF7A42E8) else Color(0xFFF0E8FF)) {
-                                Text("🎧", modifier = Modifier.wrapContentSize(Alignment.Center), style = MaterialTheme.typography.titleLarge)
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(13.dp)
+                            ) {
+                                Surface(
+                                    Modifier.size(54.dp).then(if (conversationMode) Modifier.scale(pulseScale) else Modifier),
+                                    CircleShape,
+                                    color = if (conversationMode) Color(0xFF7A42E8) else Color(0xFFF0E8FF)
+                                ) {
+                                    Text("🎧", modifier = Modifier.wrapContentSize(Alignment.Center), style = MaterialTheme.typography.titleLarge)
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                        Text("Modo conversación", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold), color = Color(0xFF263B73))
+                                        Surface(shape = RoundedCornerShape(20.dp), color = if (conversationMode) Color(0xFF7A42E8) else Color(0xFFE9E7EF)) {
+                                            Text(
+                                                if (conversationMode) "ACTIVO" else "LISTO",
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                                color = if (conversationMode) Color.White else Color(0xFF667085)
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        if (conversationMode) "Escuchando • traduciendo • hablando" else "Conversa sin tocar la pantalla",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF667085)
+                                    )
+                                }
+                                Switch(
+                                    checked = conversationMode,
+                                    onCheckedChange = { enabled ->
+                                        if (enabled) startConversationMode(source, target) { conversationMode = it }
+                                        else stopConversationMode { conversationMode = it }
+                                    }
+                                )
                             }
-                            Column(Modifier.weight(1f)) {
-                                Text("Modo conversación", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold), color = Color(0xFF263B73))
-                                Text(if (conversationMode) "Escuchando y respondiendo en " + target.name + "…" else "Habla con otra persona sin tocar la pantalla", style = MaterialTheme.typography.bodySmall, color = Color(0xFF667085))
-                            }
-                            Switch(
-                                checked = conversationMode,
-                                onCheckedChange = { enabled ->
-                                    if (enabled) startConversationMode(source, target) { conversationMode = it }
-                                    else stopConversationMode { conversationMode = it }
+                            AnimatedVisibility(visible = conversationMode) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Surface(Modifier.weight(1f), shape = RoundedCornerShape(14.dp), color = Color.White) {
+                                            Column(Modifier.padding(10.dp)) {
+                                                Text(source.flag + " " + source.name, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF315BEA))
+                                                Text("Tu voz", style = MaterialTheme.typography.bodySmall, color = Color(0xFF7B8190))
+                                            }
+                                        }
+                                        Surface(Modifier.weight(1f), shape = RoundedCornerShape(14.dp), color = Color.White) {
+                                            Column(Modifier.padding(10.dp)) {
+                                                Text(target.flag + " " + target.name, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF7A42E8))
+                                                Text("Respuesta", style = MaterialTheme.typography.bodySmall, color = Color(0xFF7B8190))
+                                            }
+                                        }
+                                    }
+                                    Text(
+                                        "🎙️  Di una frase. Cuando termines, la app la traducirá y la reproducirá automáticamente.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF5D6370),
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
                                 }
                             )
                         }
