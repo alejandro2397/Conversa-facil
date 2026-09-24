@@ -39,6 +39,8 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -426,6 +428,10 @@ private fun ConversaFacilApp(
     var isListening by remember { mutableStateOf(false) }
     var isPreparingLanguage by remember { mutableStateOf(false) }
     var conversationMode by remember { mutableStateOf(false) }
+    var premiumStatus by remember { mutableStateOf("LISTO") }
+    val premiumTransition = rememberInfiniteTransition(label = "premiumTransition")
+    val glowAlpha by premiumTransition.animateFloat(0.35f, 0.85f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "glowAlpha")
+    val cardOffset by animateDpAsState(if (conversationMode) 0.dp else 4.dp, tween(350, easing = FastOutSlowInEasing), label = "cardOffset")
     var loadingMessageIndex by remember { mutableStateOf(0) }
     val context = LocalContext.current
     val micScale by animateFloatAsState(if (isListening) 1.08f else 1f, tween(220), label = "micScale")
@@ -583,7 +589,7 @@ private fun ConversaFacilApp(
                                 Surface(
                                     Modifier.size(54.dp).then(if (conversationMode) Modifier.scale(pulseScale) else Modifier),
                                     CircleShape,
-                                    color = if (conversationMode) Color(0xFF7A42E8) else Color(0xFFF0E8FF)
+                                    color = if (conversationMode) Color(0xFF7A42E8).copy(alpha = glowAlpha) else Color(0xFFF0E8FF)
                                 ) {
                                     Text("🎧", modifier = Modifier.wrapContentSize(Alignment.Center), style = MaterialTheme.typography.titleLarge)
                                 }
@@ -630,7 +636,7 @@ private fun ConversaFacilApp(
                                         }
                                     }
                                     Text(
-                                        "🎙️  Di una frase. Cuando termines, la app la traducirá y la reproducirá automáticamente.",
+                                        if (translationLoading.value) "✨ Procesando tu frase…" else "🎙️  Di una frase. Al terminar, traducirá y responderá automáticamente.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Color(0xFF5D6370),
                                         textAlign = TextAlign.Center,
