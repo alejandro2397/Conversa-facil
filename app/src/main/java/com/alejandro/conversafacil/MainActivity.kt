@@ -108,11 +108,10 @@ class MainActivity : ComponentActivity() {
             }
         }
         Thread { MobileAds.initialize(this) {} }.start()
-        // Pre-descarga los modelos de los 15 idiomas al iniciar la app.
-        // Así, después de la primera preparación, cambiar de idioma no provoca
-        // una descarga inesperada durante la traducción.
-        preloadAllLanguageModels()
-        prepareTranslator("es", "zh")
+        // Los modelos se descargan únicamente cuando el usuario selecciona
+        // un idioma que todavía no está disponible en el dispositivo.
+        // Así el primer arranque sigue siendo ligero y la espera ocurre
+        // exactamente dentro del panel de traducción.
         setContent {
             ConversaFacilApp(
                 spokenText = speechResult.value,
@@ -137,20 +136,6 @@ class MainActivity : ComponentActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, language.speechLocale)
             putExtra(RecognizerIntent.EXTRA_PROMPT, "Habla en ${language.name}")
         })
-    }
-
-    private fun preloadAllLanguageModels() {
-        val conditions = DownloadConditions.Builder().build()
-        languages.filter { it.code != "es" }.forEach { language ->
-            val translator = Translation.getClient(
-                TranslatorOptions.Builder()
-                    .setSourceLanguage("es")
-                    .setTargetLanguage(language.code)
-                    .build()
-            )
-            translator.downloadModelIfNeeded(conditions)
-                .addOnCompleteListener { translator.close() }
-        }
     }
 
     private fun prepareTranslator(source: String, target: String, onReady: (() -> Unit)? = null) {
@@ -334,6 +319,8 @@ private fun ConversaFacilApp(
     var sourceText by remember { mutableStateOf("") }
     var targetText by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
+    var isPreparingLanguage by remember { mutableStateOf(false) }
+    var loadingMessageIndex by remember { mutableStateOf(0) }
     val context = LocalContext.current
     val micScale by animateFloatAsState(if (isListening) 1.08f else 1f, tween(220), label = "micScale")
 
@@ -346,8 +333,22 @@ private fun ConversaFacilApp(
         if (translatedText.isNotBlank()) targetText = translatedText
     }
     LaunchedEffect(source.code, target.code) {
-        if (source.code != target.code) {
-            prepareLanguages(source.code, target.code, null)
+        if (source.code == target.code) {
+            isPreparingLanguage = false
+            return@LaunchedEffect
+        }
+        isPreparingLanguage = true
+        loadingMessageIndex = 0
+        prepareLanguages(source.code, target.code) {
+            isPreparingLanguage = false
+        }
+    }
+
+    LaunchedEffect(isPreparingLanguage) {
+        if (!isPreparingLanguage) return@LaunchedEffect
+        while (isPreparingLanguage) {
+            delay(900)
+            loadingMessageIndex = (loadingMessageIndex + 1) % 4
         }
     }
 
@@ -554,14 +555,55 @@ private fun ConversaFacilApp(
                                         if (it.code != source.code) {
                                             target = it
                                             targetText = ""
-                                            prepareLanguages(source.code, it.code, null)
+                                            isPreparingLanguage = true
+                                            loadingMessageIndex = 0
+                                            prepareLanguages(source.code, it.code) {
+                                                isPreparingLanguage = false
+                                            }
                                         }
                                     }
                                 }
                                 Spacer(Modifier.width(12.dp))
                                 Text("✨", style = MaterialTheme.typography.headlineMedium, color = Color(0xFF00A86B))
                             }
-                            if (isTranslating) {
+                            if (isPreparingLanguage) {
+                                val downloadMessages = listOf(
+                                    "📥 Descargando el archivo del idioma…",
+                                    "🧩 Preparando el idioma " + target.name + "…",
+                                    "✨ Casi listo… preparando la traducción",
+                                    "⚡ Un momento, ya casi puedes traducir"
+                                )
+                                val message = downloadMessages[loadingMessageIndex]
+                                Card(
+                                    Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(18.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF3EEFF))
+                                ) {
+                                    Column(
+                                        Modifier.fillMaxWidth().padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(9.dp)
+                                    ) {
+                                        CircularProgressIndicator(
+                                            Modifier.size(30.dp),
+                                            strokeWidth = 3.dp,
+                                            color = Color(0xFF7A42E8)
+                                        )
+                                        Text(
+                                            message,
+                                            textAlign = TextAlign.Center,
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                                            color = Color(0xFF5D35B0)
+                                        )
+                                        Text(
+                                            "Espera un momento mientras descargamos el archivo necesario. Solo tendrás que hacerlo la primera vez.",
+                                            textAlign = TextAlign.Center,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF6F6385)
+                                        )
+                                    }
+                                }
+                            } else if (isTranslating) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp)
                                     Text("Traduciendo…", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF087F61))
