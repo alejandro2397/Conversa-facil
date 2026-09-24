@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/conversacion-tiempo-real
 
 permissions:
   contents: write
