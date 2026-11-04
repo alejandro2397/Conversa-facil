@@ -16,6 +16,8 @@ import android.os.IBinder
 import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.speech.SpeechRecognizer
 import android.view.Gravity
 import android.view.MotionEvent
@@ -254,7 +256,7 @@ class LiveTranslationService : Service(), RecognitionListener {
                     overlayExpanded = !overlayExpanded
                     overlayBody?.visibility = if (overlayExpanded) View.VISIBLE else View.GONE
                     text = if (overlayExpanded) "—" else "+"
-                    overlay?.let { windowManager?.updateViewLayout(it, overlayParams) }
+                    overlayParams?.let { currentParams -> overlay?.let { windowManager?.updateViewLayout(it, currentParams) } }
                 }
             }
             header.addView(minimize, LinearLayout.LayoutParams(dp(38), dp(34)))
