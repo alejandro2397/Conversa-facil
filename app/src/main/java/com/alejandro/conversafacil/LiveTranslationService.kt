@@ -66,6 +66,10 @@ class LiveTranslationService : Service(), RecognitionListener {
     private var isTranslating = false
     private var lastRecognized = ""
     private var pendingPhrase: String? = null
+    private var pendingPhraseSpeak = true
+    private var pendingPhraseRestart = true
+    private var partialTranslateRunnable: Runnable? = null
+    private var translationRequestId = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -117,8 +121,10 @@ class LiveTranslationService : Service(), RecognitionListener {
             ?.addOnSuccessListener {
                 updateOverlay("Modelo listo. Escuchando…")
                 pendingPhrase?.let { phrase ->
+                    val shouldSpeak = pendingPhraseSpeak
+                    val shouldRestart = pendingPhraseRestart
                     pendingPhrase = null
-                    translatePhrase(phrase)
+                    translatePhrase(phrase, shouldSpeak, shouldRestart)
                 }
             }
             ?.addOnFailureListener { updateOverlay("No se pudo descargar el idioma. Revisa Internet.") }
@@ -158,38 +164,59 @@ class LiveTranslationService : Service(), RecognitionListener {
     }
 
     override fun onResults(results: android.os.Bundle?) {
+        partialTranslateRunnable?.let { mainHandler.removeCallbacks(it) }
+        partialTranslateRunnable = null
         val phrase = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
         if (phrase.isNotBlank() && phrase != lastRecognized) {
             lastRecognized = phrase
-            translatePhrase(phrase)
+            translatePhrase(phrase, speakResult = true, restartAfter = true)
         } else scheduleRestart()
     }
 
-    private fun translatePhrase(phrase: String) {
+    override fun onPartialResults(partialResults: android.os.Bundle?) {
+        val phrase = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
+        if (phrase.isBlank() || phrase == lastRecognized) return
+        updateOverlay("Escuchado: " + phrase + "\n\nPreparando subtítulo en español…")
+        partialTranslateRunnable?.let { mainHandler.removeCallbacks(it) }
+        val task = Runnable {
+            if (isListening && phrase != lastRecognized) {
+                translatePhrase(phrase, speakResult = false, restartAfter = false)
+            }
+        }
+        partialTranslateRunnable = task
+        mainHandler.postDelayed(task, 850)
+    }
+
+    private fun translatePhrase(phrase: String, speakResult: Boolean = true, restartAfter: Boolean = true) {
         val activeTranslator = translator
         if (activeTranslator == null) {
             pendingPhrase = phrase
+            pendingPhraseSpeak = speakResult
+            pendingPhraseRestart = restartAfter
             updateOverlay("Preparando el traductor…")
             return
         }
+        val requestId = ++translationRequestId
         isTranslating = true
-        updateOverlay("Original: " + phrase + "\n\nTraduciendo…")
+        updateOverlay("Original: " + phrase + "\n\nTraduciendo al español…")
         activeTranslator.translate(phrase)
             .addOnSuccessListener { translated ->
+                if (requestId != translationRequestId) return@addOnSuccessListener
                 updateOverlay(translated)
                 isTranslating = false
-                if (speakEnabled && ttsReady && translated.isNotBlank()) {
+                if (speakResult && speakEnabled && ttsReady && translated.isNotBlank()) {
                     val utteranceId = "live-" + System.currentTimeMillis()
                     val result = tts?.speak(translated, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-                    if (result == TextToSpeech.ERROR) scheduleRestart()
-                } else {
+                    if (result == TextToSpeech.ERROR && restartAfter) scheduleRestart()
+                } else if (restartAfter) {
                     scheduleRestart()
                 }
             }
             .addOnFailureListener {
-                updateOverlay("No se pudo traducir esta frase. Continúo escuchando…")
+                if (requestId != translationRequestId) return@addOnFailureListener
+                updateOverlay("No se pudo traducir esta frase. Comprueba Internet y el idioma.")
                 isTranslating = false
-                scheduleRestart()
+                if (restartAfter) scheduleRestart()
             }
     }
 
@@ -212,7 +239,6 @@ class LiveTranslationService : Service(), RecognitionListener {
     override fun onRmsChanged(rmsdB: Float) {}
     override fun onBufferReceived(buffer: ByteArray?) {}
     override fun onEndOfSpeech() {}
-    override fun onPartialResults(partialResults: android.os.Bundle?) {}
     override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -370,6 +396,8 @@ class LiveTranslationService : Service(), RecognitionListener {
     override fun onDestroy() {
         isListening = false
         mainHandler.removeCallbacksAndMessages(null)
+        partialTranslateRunnable = null
+        translationRequestId++
         try { recognizer?.cancel(); recognizer?.destroy() } catch (_: Exception) {}
         recognizer = null
         translator?.close()
