@@ -682,7 +682,13 @@ private fun ConversaFacilApp(
                     )
                 }
                 if (showLiveDialog) {
-                    LiveFeatureDialog(onDismiss = { showLiveDialog = false })
+                    LiveFeatureDialog(
+                        onDismiss = { showLiveDialog = false },
+                        onStartLive = {
+                            showLiveDialog = false
+                            context.startActivity(Intent(context, LiveTranslationActivity::class.java))
+                        }
+                    )
                 }
             }
         }
