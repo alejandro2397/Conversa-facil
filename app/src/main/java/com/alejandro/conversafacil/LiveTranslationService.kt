@@ -256,7 +256,7 @@ class LiveTranslationService : Service(), RecognitionListener {
                     overlayExpanded = !overlayExpanded
                     overlayBody?.visibility = if (overlayExpanded) View.VISIBLE else View.GONE
                     text = if (overlayExpanded) "—" else "+"
-                    overlayParams?.let { currentParams -> overlay?.let { windowManager?.updateViewLayout(it, currentParams) } }
+                    overlayParams?.let { currentParams -> this@LiveTranslationService.overlay?.let { view -> windowManager?.updateViewLayout(view, currentParams) } }
                 }
             }
             header.addView(minimize, LinearLayout.LayoutParams(dp(38), dp(34)))
