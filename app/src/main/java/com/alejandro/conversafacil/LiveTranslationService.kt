@@ -16,6 +16,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.TextView
@@ -55,6 +56,7 @@ class LiveTranslationService : Service(), RecognitionListener {
     private var isListening = false
     private var isTranslating = false
     private var lastRecognized = ""
+    private var pendingPhrase: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -62,7 +64,22 @@ class LiveTranslationService : Service(), RecognitionListener {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         tts = TextToSpeech(this) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
-            if (ttsReady) tts?.language = Locale.forLanguageTag("es-MX")
+            if (ttsReady) {
+                val selected = tts?.setLanguage(Locale.forLanguageTag("es-MX"))
+                if (selected == TextToSpeech.LANG_MISSING_DATA || selected == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    tts?.language = Locale.forLanguageTag("es-ES")
+                }
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {}
+                    override fun onDone(utteranceId: String?) {
+                        mainHandler.post { scheduleRestart() }
+                    }
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        mainHandler.post { scheduleRestart() }
+                    }
+                })
+            }
         }
     }
 
@@ -88,7 +105,13 @@ class LiveTranslationService : Service(), RecognitionListener {
             TranslatorOptions.Builder().setSourceLanguage(sourceLanguage).setTargetLanguage("es").build()
         )
         translator?.downloadModelIfNeeded(DownloadConditions.Builder().build())
-            ?.addOnSuccessListener { updateOverlay("Modelo listo. Escuchando…") }
+            ?.addOnSuccessListener {
+                updateOverlay("Modelo listo. Escuchando…")
+                pendingPhrase?.let { phrase ->
+                    pendingPhrase = null
+                    translatePhrase(phrase)
+                }
+            }
             ?.addOnFailureListener { updateOverlay("No se pudo descargar el idioma. Revisa Internet.") }
     }
 
@@ -136,8 +159,8 @@ class LiveTranslationService : Service(), RecognitionListener {
     private fun translatePhrase(phrase: String) {
         val activeTranslator = translator
         if (activeTranslator == null) {
+            pendingPhrase = phrase
             updateOverlay("Preparando el traductor…")
-            scheduleRestart()
             return
         }
         isTranslating = true
@@ -145,11 +168,14 @@ class LiveTranslationService : Service(), RecognitionListener {
         activeTranslator.translate(phrase)
             .addOnSuccessListener { translated ->
                 updateOverlay(translated)
-                if (speakEnabled && ttsReady && translated.isNotBlank()) {
-                    tts?.speak(translated, TextToSpeech.QUEUE_ADD, null, "live-" + System.currentTimeMillis())
-                }
                 isTranslating = false
-                scheduleRestart()
+                if (speakEnabled && ttsReady && translated.isNotBlank()) {
+                    val utteranceId = "live-" + System.currentTimeMillis()
+                    val result = tts?.speak(translated, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+                    if (result == TextToSpeech.ERROR) scheduleRestart()
+                } else {
+                    scheduleRestart()
+                }
             }
             .addOnFailureListener {
                 updateOverlay("No se pudo traducir esta frase. Continúo escuchando…")
