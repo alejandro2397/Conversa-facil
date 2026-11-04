@@ -684,9 +684,12 @@ private fun ConversaFacilApp(
                 if (showLiveDialog) {
                     LiveFeatureDialog(
                         onDismiss = { showLiveDialog = false },
-                        onStartLive = {
+                        onStartLive = { captions, voice ->
                             showLiveDialog = false
-                            context.startActivity(Intent(context, LiveTranslationActivity::class.java))
+                            context.startActivity(Intent(context, LiveTranslationActivity::class.java).apply {
+                                putExtra(LiveTranslationService.EXTRA_CAPTIONS, captions)
+                                putExtra(LiveTranslationService.EXTRA_SPEAK, voice)
+                            })
                         }
                     )
                 }
