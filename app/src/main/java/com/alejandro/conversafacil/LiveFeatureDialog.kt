@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 
 @Composable
-fun LiveFeatureDialog(onDismiss: () -> Unit, onStartLive: () -> Unit) {
+fun LiveFeatureDialog(onDismiss: () -> Unit, onStartLive: (Boolean, Boolean) -> Unit) {
     var showCaptions by remember { mutableStateOf(true) }
     var speakTranslation by remember { mutableStateOf(true) }
 
@@ -98,7 +98,7 @@ fun LiveFeatureDialog(onDismiss: () -> Unit, onStartLive: () -> Unit) {
                 )
                 Spacer(Modifier.height(2.dp))
                 Button(
-                    onClick = onStartLive,
+                    onClick = { onStartLive(showCaptions, speakTranslation) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)
                 ) {
