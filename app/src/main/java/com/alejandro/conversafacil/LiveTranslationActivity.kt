@@ -31,6 +31,7 @@ class LiveTranslationActivity : ComponentActivity() {
     private var selectedLanguage by mutableStateOf("zh")
     private var speakEnabled by mutableStateOf(true)
     private var statusText by mutableStateOf("Selecciona el idioma de la transmisión.")
+    private var showCaptions = true
     private var pendingStart = false
 
     private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -40,6 +41,8 @@ class LiveTranslationActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        showCaptions = intent.getBooleanExtra(LiveTranslationService.EXTRA_CAPTIONS, true)
+        speakEnabled = intent.getBooleanExtra(LiveTranslationService.EXTRA_SPEAK, true)
         setContent {
             MaterialTheme {
                 Surface(Modifier.fillMaxSize()) {
@@ -109,6 +112,7 @@ class LiveTranslationActivity : ComponentActivity() {
         val intent = Intent(this, LiveTranslationService::class.java).apply {
             putExtra(LiveTranslationService.EXTRA_SOURCE, selectedLanguage)
             putExtra(LiveTranslationService.EXTRA_SPEAK, speakEnabled)
+            putExtra(LiveTranslationService.EXTRA_CAPTIONS, showCaptions)
         }
         ContextCompat.startForegroundService(this, intent)
         pendingStart = false
