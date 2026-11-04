@@ -16,14 +16,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,8 +34,7 @@ import androidx.compose.ui.window.Dialog
  * en una fase posterior, sin modificar el traductor existente.
  */
 @Composable
-fun LiveFeatureDialog(onDismiss: () -> Unit) {
-    var captureMode by remember { mutableStateOf("Audio interno (si TikTok lo permite)") }
+fun LiveFeatureDialog(onDismiss: () -> Unit, onStartLive: () -> Unit) {
     var showCaptions by remember { mutableStateOf(true) }
     var speakTranslation by remember { mutableStateOf(true) }
 
@@ -82,25 +76,7 @@ fun LiveFeatureDialog(onDismiss: () -> Unit) {
                     }
                 }
 
-                Text("Fuente de audio", fontWeight = FontWeight.Bold, color = Color(0xFF24324A))
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(
-                            selected = captureMode == "Audio interno (si TikTok lo permite)",
-                            onClick = { captureMode = "Audio interno (si TikTok lo permite)" }
-                        )
-                        Text("Audio interno (si TikTok lo permite)", style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(
-                            selected = captureMode == "Micrófono como alternativa",
-                            onClick = { captureMode = "Micrófono como alternativa" }
-                        )
-                        Text("Micrófono como alternativa", style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-
-                Text("Qué quieres recibir", fontWeight = FontWeight.Bold, color = Color(0xFF24324A))
+                Card(\n                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF3FF)),\n                    shape = RoundedCornerShape(16.dp)\n                ) {\n                    Text(\n                        "Primera versión: utiliza el micrófono del teléfono para escuchar el LIVE por el altavoz. Mantén el volumen audible. La captura directa del audio interno de TikTok será una fase posterior.",\n                        modifier = Modifier.padding(13.dp),\n                        color = Color(0xFF31517A),\n                        style = MaterialTheme.typography.bodySmall\n                    )\n                }\n\n                Text("Qué quieres recibir", fontWeight = FontWeight.Bold, color = Color(0xFF24324A))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = showCaptions, onCheckedChange = { showCaptions = it })
                     Text("Subtítulos en español")
@@ -123,8 +99,7 @@ fun LiveFeatureDialog(onDismiss: () -> Unit) {
                 }
 
                 Text(
-                    "Configuración seleccionada: $captureMode · " +
-                        (if (showCaptions) "Subtítulos" else "Sin subtítulos") + " · " +
+                    (if (showCaptions) "Subtítulos activados" else "Subtítulos desactivados") + " · " +
                         (if (speakTranslation) "Voz activada" else "Voz desactivada"),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color(0xFF667085),
@@ -133,11 +108,11 @@ fun LiveFeatureDialog(onDismiss: () -> Unit) {
 
                 Spacer(Modifier.height(2.dp))
                 Button(
-                    onClick = onDismiss,
+                    onClick = onStartLive,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("Volver al traductor", fontWeight = FontWeight.Bold)
+                    Text("Configurar e iniciar LIVE", fontWeight = FontWeight.Bold)
                 }
             }
         }
