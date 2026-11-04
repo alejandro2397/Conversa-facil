@@ -322,6 +322,7 @@ private fun ConversaFacilApp(
     var isPreparingLanguage by remember { mutableStateOf(false) }
     var loadingMessageIndex by remember { mutableStateOf(0) }
     val context = LocalContext.current
+    var showLiveDialog by remember { mutableStateOf(false) }
     val micScale by animateFloatAsState(if (isListening) 1.08f else 1f, tween(220), label = "micScale")
 
 
@@ -424,6 +425,39 @@ private fun ConversaFacilApp(
                         }
                         Surface(shape = RoundedCornerShape(18.dp), color = Color.White.copy(alpha = 0.26f)) {
                             Text("● EN LÍNEA", modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White)
+                        }
+                    }
+                }
+
+                // Acceso independiente a LIVE: no sustituye ni altera el traductor actual.
+                Card(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(3.dp)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                "Conversa Fácil LIVE",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                                color = Color(0xFF5D35B0)
+                            )
+                            Text(
+                                "Subtítulos y voz en español mientras ves transmisiones.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF667085)
+                            )
+                        }
+                        Button(
+                            onClick = { showLiveDialog = true },
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("Abrir LIVE", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -646,6 +680,9 @@ private fun ConversaFacilApp(
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                         color = Color(0xFF667085)
                     )
+                }
+                if (showLiveDialog) {
+                    LiveFeatureDialog(onDismiss = { showLiveDialog = false })
                 }
             }
         }
