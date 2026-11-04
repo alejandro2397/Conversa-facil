@@ -8,6 +8,8 @@ import android.app.Service
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -15,10 +17,11 @@ import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.google.mlkit.common.model.DownloadConditions
@@ -51,7 +54,11 @@ class LiveTranslationService : Service(), RecognitionListener {
     private var showCaptions = true
     private var sourceLanguage = "zh"
     private var sourceLocale = "zh-CN"
-    private var overlay: TextView? = null
+    private var overlay: LinearLayout? = null
+    private var overlayBody: TextView? = null
+    private var overlayStatus: TextView? = null
+    private var overlayParams: WindowManager.LayoutParams? = null
+    private var overlayExpanded = true
     private var windowManager: WindowManager? = null
     private var isListening = false
     private var isTranslating = false
@@ -206,31 +213,127 @@ class LiveTranslationService : Service(), RecognitionListener {
     override fun onPartialResults(partialResults: android.os.Bundle?) {}
     override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
 
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun roundedBackground(color: Int, radius: Float): GradientDrawable =
+        GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(radius.toInt()).toFloat()
+        }
+
+    private fun makeText(value: String, size: Float, color: Int, bold: Boolean = false): TextView =
+        TextView(this).apply {
+            text = value
+            textSize = size
+            setTextColor(color)
+            if (bold) setTypeface(typeface, Typeface.BOLD)
+        }
+
     private fun showOverlay(message: String) {
         if (!showCaptions || !SettingsCanDrawOverlays()) return
         if (overlay == null) {
-            val view = TextView(this).apply {
-                setTextColor(Color.WHITE)
-                textSize = 15f
-                setPadding(28, 22, 28, 22)
-                setBackgroundColor(Color.argb(235, 43, 34, 62))
-                gravity = Gravity.CENTER_VERTICAL
-                elevation = 12f
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = roundedBackground(Color.rgb(38, 29, 57), 18f)
+                elevation = dp(12).toFloat()
+                clipToOutline = true
             }
-            overlay = view
+
+            val header = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), dp(10), dp(8), dp(10))
+                background = roundedBackground(Color.rgb(101, 75, 166), 18f)
+            }
+            val title = makeText("🌎  CONVERSA FÁCIL LIVE", 13f, Color.WHITE, true)
+            header.addView(title, LinearLayout.LayoutParams(0, dp(34), 1f))
+
+            val minimize = makeText("—", 22f, Color.WHITE, true).apply {
+                gravity = Gravity.CENTER
+                setOnClickListener {
+                    overlayExpanded = !overlayExpanded
+                    overlayBody?.visibility = if (overlayExpanded) View.VISIBLE else View.GONE
+                    text = if (overlayExpanded) "—" else "+"
+                    overlay?.let { windowManager?.updateViewLayout(it, overlayParams) }
+                }
+            }
+            header.addView(minimize, LinearLayout.LayoutParams(dp(38), dp(34)))
+
+            val close = makeText("×", 24f, Color.WHITE, false).apply {
+                gravity = Gravity.CENTER
+                setOnClickListener { stopSelf() }
+            }
+            header.addView(close, LinearLayout.LayoutParams(dp(34), dp(34)))
+
+            var startX = 0f
+            var startY = 0f
+            var initialX = 0
+            var initialY = 0
+            var moved = false
+            header.setOnTouchListener { _, event ->
+                val params = overlayParams ?: return@setOnTouchListener false
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startX = event.rawX
+                        startY = event.rawY
+                        initialX = params.x
+                        initialY = params.y
+                        moved = false
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = (event.rawX - startX).toInt()
+                        val dy = (event.rawY - startY).toInt()
+                        if (kotlin.math.abs(dx) + kotlin.math.abs(dy) > dp(4)) moved = true
+                        params.x = initialX + dx
+                        params.y = initialY + dy
+                        try { windowManager?.updateViewLayout(card, params) } catch (_: Exception) {}
+                        true
+                    }
+                    MotionEvent.ACTION_UP -> true
+                    else -> false
+                }
+            }
+
+            val status = makeText("●  ESCUCHANDO", 11f, Color.rgb(190, 170, 255), true).apply {
+                setPadding(dp(15), dp(9), dp(15), 0)
+            }
+            val body = makeText("Esperando la voz…", 15f, Color.WHITE).apply {
+                setPadding(dp(15), dp(5), dp(15), dp(14))
+                maxLines = 5
+                setLineSpacing(dp(2).toFloat(), 1f)
+            }
+            card.addView(header)
+            card.addView(status)
+            card.addView(body)
+            overlayStatus = status
+            overlayBody = body
+            overlay = card
+
             val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else WindowManager.LayoutParams.TYPE_PHONE
             val params = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
+                dp(320),
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 type,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT
-            ).apply { gravity = Gravity.BOTTOM; y = 100 }
-            try { windowManager?.addView(view, params) } catch (_: Exception) { overlay = null }
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+                x = dp(12)
+                y = dp(260)
+            }
+            overlayParams = params
+            try { windowManager?.addView(card, params) } catch (_: Exception) {
+                overlay = null
+                overlayBody = null
+                overlayStatus = null
+                overlayParams = null
+            }
         }
-        overlay?.text = "🌎 Conversa Fácil LIVE\n" + message
+        overlayBody?.text = message
+        overlayStatus?.text = if (message.startsWith("Escuchando")) "●  EN VIVO · ESCUCHANDO" else "●  CONVERSA FÁCIL LIVE"
     }
 
     private fun SettingsCanDrawOverlays(): Boolean =
@@ -274,6 +377,9 @@ class LiveTranslationService : Service(), RecognitionListener {
         tts = null
         overlay?.let { try { windowManager?.removeView(it) } catch (_: Exception) {} }
         overlay = null
+        overlayBody = null
+        overlayStatus = null
+        overlayParams = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
