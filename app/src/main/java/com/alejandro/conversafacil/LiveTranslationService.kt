@@ -36,6 +36,7 @@ class LiveTranslationService : Service(), RecognitionListener {
         const val ACTION_STOP = "com.alejandro.conversafacil.live.STOP"
         const val EXTRA_SOURCE = "source_language"
         const val EXTRA_SPEAK = "speak_translation"
+        const val EXTRA_CAPTIONS = "show_captions"
         private const val CHANNEL_ID = "conversa_live_channel"
         private const val NOTIFICATION_ID = 2401
     }
@@ -46,6 +47,7 @@ class LiveTranslationService : Service(), RecognitionListener {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var speakEnabled = true
+    private var showCaptions = true
     private var sourceLanguage = "zh"
     private var sourceLocale = "zh-CN"
     private var overlay: TextView? = null
@@ -72,6 +74,7 @@ class LiveTranslationService : Service(), RecognitionListener {
         sourceLanguage = intent?.getStringExtra(EXTRA_SOURCE) ?: "zh"
         sourceLocale = if (sourceLanguage == "en") "en-US" else "zh-CN"
         speakEnabled = intent?.getBooleanExtra(EXTRA_SPEAK, true) ?: true
+        showCaptions = intent?.getBooleanExtra(EXTRA_CAPTIONS, true) ?: true
         startForeground(NOTIFICATION_ID, buildNotification())
         showOverlay("Preparando reconocimiento de voz…")
         prepareTranslator()
@@ -178,7 +181,7 @@ class LiveTranslationService : Service(), RecognitionListener {
     override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
 
     private fun showOverlay(message: String) {
-        if (!SettingsCanDrawOverlays()) return
+        if (!showCaptions || !SettingsCanDrawOverlays()) return
         if (overlay == null) {
             val view = TextView(this).apply {
                 setTextColor(Color.WHITE)
